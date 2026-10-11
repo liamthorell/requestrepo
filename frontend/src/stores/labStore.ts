@@ -59,3 +59,12 @@ export const useLabStore = create<LabState>()(
     },
   ),
 );
+
+// Rehydrate without writing back, keeping open tabs from overwriting a stale notebook.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === "kebab-requestlab" && event.newValue) {
+      void useLabStore.persist.rehydrate();
+    }
+  });
+}

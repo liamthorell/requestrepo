@@ -11,12 +11,36 @@ Object.defineProperty(globalThis, "localStorage", {
   configurable: true,
 });
 Object.defineProperty(globalThis, "window", {
-  value: { localStorage: globalThis.localStorage },
+  value: Object.assign(new EventTarget(), {
+    localStorage: globalThis.localStorage,
+  }),
   configurable: true,
 });
 const { useLabStore } = await import("../src/stores/labStore");
 
 describe("browser evidence notebook", () => {
+  it("keeps notes saved in another tab when changing a preference", () => {
+    const external = {
+      state: {
+        bookmarks: { other: { proof: true } },
+        notes: { other: { proof: "Saved in another tab" } },
+        scheme: "https",
+        followRequests: true,
+      },
+      version: 0,
+    };
+    entries.set("kebab-requestlab", JSON.stringify(external));
+    window.dispatchEvent(
+      Object.assign(new Event("storage"), {
+        key: "kebab-requestlab",
+        newValue: JSON.stringify(external),
+      }),
+    );
+    useLabStore.getState().setScheme("http");
+    const saved = JSON.parse(entries.get("kebab-requestlab")!);
+    assert.equal(saved.state.notes.other.proof, "Saved in another tab");
+    assert.equal(saved.state.bookmarks.other.proof, true);
+  });
   it("keeps the same request ID separate across sessions", () => {
     useLabStore.getState().toggleBookmark("session-a", "request-1");
     useLabStore.getState().setNote("session-a", "request-1", "SSRF proof");

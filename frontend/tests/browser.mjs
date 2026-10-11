@@ -92,6 +92,39 @@ try {
     .getByRole("button", { name: "Bookmarked", exact: true })
     .click();
   console.log("PASS notebook persistence, body search, bookmark filter");
+  const peer = await context.newPage();
+  await peer.goto(base + "/requests");
+  await peer
+    .getByRole("button", {
+      name: "Select POST request /kebab-browser-qa",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Evidence note" })
+    .fill("Updated across tabs / browser QA");
+  await peer.waitForFunction(
+    () =>
+      document.querySelector('input[aria-label="Evidence note"]')?.value ===
+      "Updated across tabs / browser QA",
+  );
+  await peer.selectOption('select[aria-label="Callback URL scheme"]', "http");
+  await page.waitForFunction(
+    () =>
+      document.querySelector('select[aria-label="Callback URL scheme"]')
+        ?.value === "http",
+  );
+  await page.reload();
+  await signal.click();
+  assert.equal(
+    await page.getByRole("textbox", { name: "Evidence note" }).inputValue(),
+    "Updated across tabs / browser QA",
+  );
+  await peer.close();
+  console.log(
+    "PASS two-tab synchronization preserves notes during preference changes",
+  );
+
   await page.getByRole("button", { name: "Pause auto-scroll" }).click();
   assert.equal(
     await page

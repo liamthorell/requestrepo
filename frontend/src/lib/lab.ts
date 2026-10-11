@@ -1,17 +1,43 @@
 import type { Request } from "@/types";
 
+// WebSocket requests are immutable. A WeakMap avoids retaining deleted payloads.
+const searchCache = new WeakMap<
+  Request,
+  { metadata: string; payload?: string }
+>();
+
 export function matchesRequest(request: Request, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  let decoded = "";
-  try {
-    decoded = new TextDecoder().decode(
-      Uint8Array.from(atob(request.raw), (c) => c.charCodeAt(0)),
-    );
-  } catch {
-    /* Some captured payloads aren't base64. Search the other fields. */
+  let searchable = searchCache.get(request);
+  if (!searchable) {
+    const metadata: Record<string, unknown> = { ...request };
+    delete metadata.raw;
+    if (request.type === "smtp") {
+      metadata.attachments = request.attachments?.map((attachment) => ({
+        filename: attachment.filename,
+        content_type: attachment.content_type,
+        size: attachment.size,
+      }));
+    }
+    searchable = {
+      metadata: JSON.stringify(metadata).toLowerCase(),
+    };
+    searchCache.set(request, searchable);
   }
-  return `${JSON.stringify(request)} ${decoded}`.toLowerCase().includes(needle);
+  if (searchable.metadata.includes(needle)) return true;
+  if (searchable.payload === undefined) {
+    try {
+      const binary = atob(request.raw);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      searchable.payload = new TextDecoder().decode(bytes).toLowerCase();
+    } catch {
+      // Cache failures too: malformed captures should not retry on each keystroke.
+      searchable.payload = "";
+    }
+  }
+  return searchable.payload.includes(needle);
 }
 
 export function callbackSnippets(

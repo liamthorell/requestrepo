@@ -24,6 +24,32 @@ const http: Request = {
 };
 
 describe("CTF evidence tools", () => {
+  it("preserves arbitrary header names when projecting searchable metadata", () => {
+    const request = {
+      ...http,
+      headers: { raw: "raw-header-marker", content: "content-header-marker" },
+    };
+    assert.equal(matchesRequest(request, "raw-header-marker"), true);
+    assert.equal(matchesRequest(request, "content-header-marker"), true);
+  });
+  it("skips payload decoding for metadata matches and reuses decoded text", () => {
+    const original = globalThis.atob;
+    let decodes = 0;
+    globalThis.atob = (value) => {
+      decodes++;
+      return original(value);
+    };
+    try {
+      const request = { ...http, _id: "cache-test" };
+      assert.equal(matchesRequest(request, "POST"), true);
+      assert.equal(decodes, 0);
+      assert.equal(matchesRequest(request, "secret-body-marker"), true);
+      assert.equal(matchesRequest(request, "BODY-MARKER"), true);
+      assert.equal(decodes, 1);
+    } finally {
+      globalThis.atob = original;
+    }
+  });
   it("searches headers, decoded body and query strings case-insensitively", () => {
     for (const query of [
       "kebabengineers",
