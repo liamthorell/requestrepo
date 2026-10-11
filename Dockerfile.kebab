@@ -1,0 +1,10 @@
+# Frontend-only customization. Keep the known-working Rust backend and its certs.
+FROM oven/bun:1.4.2-slim AS frontend-builder
+WORKDIR /frontend
+COPY frontend/package.json frontend/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY frontend/ ./
+RUN bun run build
+
+FROM ghcr.io/adrgs/requestrepo:73f3d30
+COPY --from=frontend-builder --chown=1000:1000 /frontend/dist/ /app/public/

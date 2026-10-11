@@ -294,3 +294,6 @@ backend/ip2country
 dns/ip2country
 
 pyrightconfig.json
+
+# Frontend utilities are source code, not Python build output.
+!frontend/src/lib/

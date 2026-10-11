@@ -6,7 +6,17 @@ export function ThemeToggle() {
   const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
-    <Button isIconOnly variant="light" size="sm" onPress={toggleTheme}>
+    <Button
+      aria-label={
+        resolvedTheme === "dark"
+          ? "Switch to light theme"
+          : "Switch to dark theme"
+      }
+      isIconOnly
+      variant="light"
+      size="sm"
+      onPress={toggleTheme}
+    >
       {resolvedTheme === "dark" ? (
         <Sun className="h-5 w-5" />
       ) : (

@@ -8,6 +8,7 @@ import {
   Input,
   Button,
 } from "@heroui/react";
+import { KebabMark } from "@/components/layout/KebabMark";
 import { Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -58,14 +59,16 @@ export function AdminAuthOverlay({ onSubmit }: AdminAuthOverlayProps) {
         <form onSubmit={handleSubmit}>
           <ModalHeader className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <Lock className="h-5 w-5" />
-              <span>Authentication Required</span>
+              <KebabMark className="h-10 w-10 text-primary" />
+              <div>
+                <span className="eyebrow">KEBABENGINEERS</span>
+                <h1 className="text-xl font-semibold">Welcome to the grill</h1>
+              </div>
             </div>
           </ModalHeader>
           <ModalBody>
             <p className="text-sm text-default-500 mb-4">
-              This RequestRepo instance requires an admin password to create
-              sessions.
+              Enter the team password to start catching callbacks.
             </p>
 
             <Input
@@ -79,6 +82,7 @@ export function AdminAuthOverlay({ onSubmit }: AdminAuthOverlayProps) {
               startContent={<Lock className="h-4 w-4 text-default-400" />}
               endContent={
                 <button
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="focus:outline-none"
@@ -106,7 +110,7 @@ export function AdminAuthOverlay({ onSubmit }: AdminAuthOverlayProps) {
               isLoading={isSubmitting}
               isDisabled={!password.trim()}
             >
-              Authenticate
+              Fire up a session
             </Button>
           </ModalFooter>
         </form>

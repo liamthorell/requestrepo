@@ -1,7 +1,15 @@
 import { useMemo, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button, Checkbox, ScrollShadow } from "@heroui/react";
-import { X, CheckCheck } from "lucide-react";
+import {
+  X,
+  CheckCheck,
+  Bookmark,
+  Pause,
+  Play,
+  Download,
+  Inbox,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useSessionStore } from "@/stores/sessionStore";
 import {
@@ -11,6 +19,8 @@ import {
 } from "@/stores/requestStore";
 import { useUiStore } from "@/stores/uiStore";
 import { apiClient } from "@/api/client";
+import { useLabStore } from "@/stores/labStore";
+import { matchesRequest, downloadEvidence } from "@/lib/lab";
 import { cn, formatRelativeTime, getFlagClass } from "@/lib/utils";
 import type { Request } from "@/types";
 import { isHttpRequest, isSmtpRequest } from "@/types";
@@ -45,6 +55,13 @@ export function Sidebar({ onClose }: SidebarProps) {
   const markRequestVisited = useUiStore((s) => s.markRequestVisited);
   const markAllAsRead = useUiStore((s) => s.markAllAsRead);
 
+  const bookmarks = useLabStore((s) => s.bookmarks);
+  const notes = useLabStore((s) => s.notes);
+  const onlyBookmarks = useLabStore((s) => s.onlyBookmarks);
+  const toggleOnlyBookmarks = useLabStore((s) => s.toggleOnlyBookmarks);
+  const followRequests = useLabStore((s) => s.followRequests);
+  const toggleFollow = useLabStore((s) => s.toggleFollow);
+
   const removeRequest = useRequestStore((s) => s.removeRequest);
 
   // Refs for scroll behavior
@@ -62,35 +79,21 @@ export function Sidebar({ onClose }: SidebarProps) {
         if (r.type === "dns" && !dnsFilter) return false;
         if (r.type === "smtp" && !smtpFilter) return false;
 
-        // Search filter
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          if (isHttpRequest(r)) {
-            return (
-              r.path?.toLowerCase().includes(query) ||
-              r.ip?.toLowerCase().includes(query) ||
-              r.method?.toLowerCase().includes(query) ||
-              r.url?.toLowerCase().includes(query)
-            );
-          } else if (isSmtpRequest(r)) {
-            return (
-              r.command?.toLowerCase().includes(query) ||
-              r.data?.toLowerCase().includes(query) ||
-              r.ip?.toLowerCase().includes(query)
-            );
-          } else {
-            // DNS request
-            return (
-              r.domain?.toLowerCase().includes(query) ||
-              r.ip?.toLowerCase().includes(query) ||
-              r.query_type?.toLowerCase().includes(query)
-            );
-          }
-        }
-        return true;
+        if (onlyBookmarks && !bookmarks[activeSubdomain ?? ""]?.[r._id])
+          return false;
+        return matchesRequest(r, searchQuery);
       })
       .sort((a, b) => a.date - b.date); // oldest first, newest at bottom
-  }, [requests, httpFilter, dnsFilter, smtpFilter, searchQuery]);
+  }, [
+    requests,
+    httpFilter,
+    dnsFilter,
+    smtpFilter,
+    searchQuery,
+    onlyBookmarks,
+    bookmarks,
+    activeSubdomain,
+  ]);
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -127,11 +130,14 @@ export function Sidebar({ onClose }: SidebarProps) {
   useEffect(() => {
     if (!initialScrollDoneRef.current) return;
 
-    if (filteredRequests.length > prevRequestCountRef.current) {
+    if (
+      followRequests &&
+      filteredRequests.length > prevRequestCountRef.current
+    ) {
       scrollToBottom();
     }
     prevRequestCountRef.current = filteredRequests.length;
-  }, [filteredRequests.length]);
+  }, [filteredRequests.length, followRequests]);
 
   // Reset initial scroll flag when subdomain changes
   useEffect(() => {
@@ -165,7 +171,13 @@ export function Sidebar({ onClose }: SidebarProps) {
   }, [activeSubdomain, requests, visitedRequests]);
 
   const handleDeleteAll = async () => {
-    if (!session) return;
+    if (
+      !session ||
+      !window.confirm(
+        "Delete all captured requests in this session? Export any evidence you want to keep first.",
+      )
+    )
+      return;
     try {
       await apiClient.deleteAllRequests(session.token);
       clearRequests(activeSubdomain!);
@@ -191,6 +203,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     if (activeSubdomain) {
       markRequestVisited(activeSubdomain, request._id);
     }
+    onClose?.();
     // Navigate to requests page if not already there
     if (location.pathname !== "/requests") {
       navigate("/requests");
@@ -215,26 +228,23 @@ export function Sidebar({ onClose }: SidebarProps) {
         </div>
       )}
 
-      {/* Delete all requests button - aligned with toolbar (h-12 = 48px) */}
-      <div className="flex h-12 shrink-0 items-center px-3">
-        <Button
-          color="danger"
-          variant="flat"
-          size="sm"
-          className="w-full"
-          startContent={<X className="h-4 w-4" />}
-          onPress={handleDeleteAll}
-          isDisabled={requests.length === 0}
-          radius="lg"
-        >
-          Delete all requests
-        </Button>
+      <div className="queue-heading">
+        <span className="eyebrow">THE GRILL QUEUE</span>
+        <div className="flex items-center justify-between">
+          <h2>Incoming signals</h2>
+          <span className="queue-count">{requests.length}</span>
+        </div>
       </div>
-
       {/* Requests header + filters */}
       <div className="mb-3 px-3">
         <p className="mb-2 text-sm font-medium text-default-500">
-          Requests ({requests.length})
+          {filteredRequests.length} shown ·{" "}
+          {
+            requests.filter(
+              (r) => !visitedRequests[activeSubdomain ?? ""]?.[r._id],
+            ).length
+          }{" "}
+          unread
         </p>
         <div className="flex items-center gap-3">
           <Checkbox
@@ -270,12 +280,54 @@ export function Sidebar({ onClose }: SidebarProps) {
         </div>
       </div>
 
+      <div className="flex gap-2 px-3 pb-3">
+        <Button
+          size="sm"
+          className="flex-1"
+          variant="flat"
+          color={onlyBookmarks ? "primary" : "default"}
+          aria-pressed={onlyBookmarks}
+          startContent={<Bookmark size={13} />}
+          onPress={toggleOnlyBookmarks}
+        >
+          {onlyBookmarks ? "Bookmarked" : "Bookmarks"}
+        </Button>
+        <Button
+          size="sm"
+          variant="flat"
+          aria-pressed={!followRequests}
+          aria-label={
+            followRequests ? "Pause auto-scroll" : "Resume auto-scroll"
+          }
+          startContent={
+            followRequests ? <Pause size={13} /> : <Play size={13} />
+          }
+          onPress={toggleFollow}
+        >
+          {followRequests ? "Pause" : "Follow"}
+        </Button>
+      </div>
       {/* Request list */}
       <ScrollShadow
         ref={scrollContainerRef}
         className="flex-1 overflow-auto px-2"
       >
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1">
+          {filteredRequests.length === 0 && (
+            <div className="queue-empty">
+              <Inbox size={25} />
+              <strong>
+                {requests.length
+                  ? "No matching signals"
+                  : "Nothing on the grill yet"}
+              </strong>
+              <span>
+                {requests.length
+                  ? "Try changing your filters or search."
+                  : "Send a callback to your session URL."}
+              </span>
+            </div>
+          )}
           {filteredRequests.map((request, index) => {
             const isActive = request._id === selectedRequestId;
             const isVisited = activeSubdomain
@@ -288,16 +340,16 @@ export function Sidebar({ onClose }: SidebarProps) {
 
             // Determine badge color
             const getBadgeColor = () => {
-              if (isSmtp) return "bg-[#e91e63]"; // Pink for SMTP
-              if (!isHttp) return "bg-[#33daff]"; // Cyan for DNS
+              if (isSmtp) return "bg-[#b33b72]"; // Pink for SMTP
+              if (!isHttp) return "bg-[#087f9c]"; // Cyan for DNS
               // HTTP methods
               switch (request.method) {
                 case "GET":
-                  return "bg-[#20d077]";
+                  return "bg-[#24764e]";
                 case "POST":
-                  return "bg-[#ffae00]";
+                  return "bg-[#a36010]";
                 case "PUT":
-                  return "bg-[#ff9800]";
+                  return "bg-[#ab5e27]";
                 case "DELETE":
                   return "bg-[#f44336]";
                 default:
@@ -344,9 +396,22 @@ export function Sidebar({ onClose }: SidebarProps) {
                   if (el) requestRefs.current.set(request._id, el);
                   else requestRefs.current.delete(request._id);
                 }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select ${getBadgeText()} request ${getDisplayText()}`}
+                aria-pressed={isActive}
+                onKeyDown={(e) => {
+                  if (
+                    e.target === e.currentTarget &&
+                    (e.key === "Enter" || e.key === " ")
+                  ) {
+                    e.preventDefault();
+                    handleSelectRequest(request);
+                  }
+                }}
                 onClick={() => handleSelectRequest(request)}
                 className={cn(
-                  "group cursor-pointer px-2 py-1.5 transition-colors hover:bg-default-200 dark:hover:bg-default-100",
+                  "queue-item group cursor-pointer px-3 py-3 transition-colors hover:bg-default-200 dark:hover:bg-default-100",
                   isFirst && "rounded-t-md",
                   isLast && "rounded-b-md",
                   isActive && "bg-primary/10",
@@ -354,32 +419,40 @@ export function Sidebar({ onClose }: SidebarProps) {
                 )}
               >
                 <div className="flex items-center gap-1.5">
+                  {bookmarks[activeSubdomain ?? ""]?.[request._id] && (
+                    <Bookmark
+                      size={12}
+                      className="shrink-0 text-primary"
+                      fill="currentColor"
+                    />
+                  )}
                   {!isVisited && (
-                    <span className="shrink-0 inline-block px-1 py-px text-[8px] font-semibold text-white bg-red-500 rounded">
+                    <span className="shrink-0 inline-block px-1 py-px text-[10px] font-semibold text-white bg-red-500 rounded">
                       NEW
                     </span>
                   )}
                   <span
-                    className={`shrink-0 inline-block px-1 py-px text-[8px] font-semibold text-white rounded ${getBadgeColor()}`}
+                    className={`shrink-0 inline-block px-1 py-px text-[10px] font-semibold text-white rounded ${getBadgeColor()}`}
                   >
                     {getBadgeText()}
                   </span>
                   <span
                     className={cn(
-                      "truncate text-xs",
+                      "truncate text-sm",
                       !isVisited && "font-medium",
                     )}
                   >
                     {getDisplayText()}
                   </span>
-                  <span
-                    className="ml-auto shrink-0 px-1 py-px text-[8px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                  <button
+                    aria-label="Delete request"
+                    className="ml-auto shrink-0 rounded p-1 text-default-400 hover:text-danger focus:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                     onClick={(e) => handleDeleteRequest(e, request._id)}
                   >
-                    X
-                  </span>
+                    <X size={12} />
+                  </button>
                 </div>
-                <div className="mt-1.5 flex items-center gap-1 text-[10px] text-default-400">
+                <div className="mt-1.5 flex items-center gap-1 text-xs text-default-400">
                   <span className={getFlagClass(request.country)} />
                   <span className="truncate">{request.ip}</span>
                   <span className="ml-auto shrink-0">
@@ -395,7 +468,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       </ScrollShadow>
 
       {/* Mark all as read */}
-      <div className="shrink-0 p-3">
+      <div className="queue-footer shrink-0 space-y-2 p-3">
         <Button
           color="default"
           variant="flat"
@@ -408,6 +481,41 @@ export function Sidebar({ onClose }: SidebarProps) {
         >
           Mark all as read
         </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="flex-1"
+            variant="bordered"
+            startContent={<Download size={13} />}
+            isDisabled={!activeSubdomain || filteredRequests.length === 0}
+            onPress={() => {
+              if (activeSubdomain)
+                downloadEvidence(
+                  activeSubdomain,
+                  filteredRequests,
+                  bookmarks[activeSubdomain] ?? {},
+                  notes[activeSubdomain] ?? {},
+                );
+            }}
+          >
+            Export shown
+          </Button>
+          <Button
+            size="sm"
+            isIconOnly
+            aria-label="Delete all requests"
+            title="Delete all requests"
+            variant="light"
+            color="danger"
+            isDisabled={requests.length === 0}
+            onPress={handleDeleteAll}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+        <p className="text-center text-[10px] text-default-500">
+          Bookmarks & notes saved in this browser
+        </p>
       </div>
     </div>
   );

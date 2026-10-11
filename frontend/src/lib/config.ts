@@ -22,6 +22,9 @@ function getRuntimeDomain(): string {
       return window.__CONFIG__.DOMAIN;
     }
 
+    if (isDev && import.meta.env.VITE_DOMAIN)
+      return import.meta.env.VITE_DOMAIN;
+
     // Fallback: try to detect from hostname
     const hostname = window.location.hostname;
     const parts = hostname.split(".");

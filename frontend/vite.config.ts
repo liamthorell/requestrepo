@@ -28,7 +28,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:21337",
+        target: process.env.REQUESTLAB_BACKEND || "http://localhost:21337",
         changeOrigin: true,
         ws: true,
       },

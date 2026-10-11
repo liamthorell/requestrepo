@@ -6,9 +6,13 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient, isAdminRequiredError } from "@/api/client";
 import { copyToClipboard } from "@/lib/utils";
+import { CallbackKit } from "./CallbackKit";
+import { useLabStore } from "@/stores/labStore";
 import { getBaseDomain } from "@/lib/config";
 
 export function Toolbar() {
+  const scheme = useLabStore((s) => s.scheme);
+  const setScheme = useLabStore((s) => s.setScheme);
   const navigate = useNavigate();
   const location = useLocation();
   const sessions = useSessionStore((s) => s.sessions);
@@ -23,7 +27,7 @@ export function Toolbar() {
   const fullDomain = session ? `${session.subdomain}.${domain}` : domain;
 
   const handleCopyUrl = () => {
-    copyToClipboard(`http://${fullDomain}`);
+    copyToClipboard(`${scheme}://${fullDomain}`);
     toast.success("URL copied to clipboard");
   };
 
@@ -56,7 +60,7 @@ export function Toolbar() {
   ];
 
   return (
-    <div className="flex h-auto min-h-[48px] flex-col gap-2 bg-default-50 px-3 py-2 md:h-12 md:flex-row md:items-center md:justify-between md:gap-0 md:px-6 md:py-0">
+    <div className="lab-toolbar flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
       {/* Navigation Tabs */}
       <div className="flex items-center gap-1 rounded-full bg-default-100 p-1">
         {tabs.map((tab) => {
@@ -64,6 +68,7 @@ export function Toolbar() {
           const isActive = currentPath === tab.key;
           return (
             <Button
+              aria-label={tab.label}
               key={tab.key}
               variant={isActive ? "solid" : "light"}
               color={isActive ? "primary" : "default"}
@@ -73,21 +78,33 @@ export function Toolbar() {
               onPress={() => navigate(`/${tab.key}`)}
               className={isActive ? "" : "bg-transparent"}
             >
-              <span className="hidden md:inline">{tab.label}</span>
+              <span>{tab.label}</span>
             </Button>
           );
         })}
       </div>
 
+      <CallbackKit />
       {/* URL and Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-2 xl:flex-1 xl:basis-auto">
+        <select
+          aria-label="Callback URL scheme"
+          className="scheme-select"
+          value={scheme}
+          onChange={(e) => setScheme(e.target.value as "http" | "https")}
+        >
+          <option value="https">HTTPS</option>
+          <option value="http">HTTP</option>
+        </select>
         <Input
+          aria-label="Callback domain"
           value={fullDomain}
           isReadOnly
+          isDisabled={!session}
           size="sm"
           variant="flat"
           radius="lg"
-          className="min-w-0 flex-1 cursor-pointer md:w-56 md:flex-none"
+          className="min-w-0 flex-1 cursor-pointer md:w-48 md:flex-none"
           classNames={{
             input: "text-sm font-mono cursor-pointer",
             inputWrapper: "bg-default-100 shadow-none cursor-pointer",
@@ -104,6 +121,8 @@ export function Toolbar() {
           radius="lg"
           isIconOnly
           className="md:hidden"
+          isDisabled={!session}
+          aria-label="Copy callback URL"
           onPress={handleCopyUrl}
         >
           <Copy className="h-4 w-4" />
@@ -114,6 +133,8 @@ export function Toolbar() {
           size="sm"
           radius="lg"
           startContent={<Copy className="h-4 w-4" />}
+          isDisabled={!session}
+          aria-label="Copy callback URL"
           onPress={handleCopyUrl}
           className="hidden md:flex"
         >
@@ -125,6 +146,8 @@ export function Toolbar() {
           radius="lg"
           isIconOnly
           className="md:hidden"
+          isDisabled={!session}
+          aria-label="New callback URL"
           onPress={handleNewUrl}
         >
           <Shuffle className="h-4 w-4" />
@@ -134,6 +157,8 @@ export function Toolbar() {
           size="sm"
           radius="lg"
           startContent={<Shuffle className="h-4 w-4" />}
+          isDisabled={!session}
+          aria-label="New callback URL"
           onPress={handleNewUrl}
           className="hidden md:flex"
         >

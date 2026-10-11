@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input, Button, Tooltip } from "@heroui/react";
-import { Star, Plus, Share2, Search, X, Menu } from "lucide-react";
+import { Plus, Share2, Search, X, Menu } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "./ThemeToggle";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -9,7 +9,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient, isAdminRequiredError } from "@/api/client";
 import { copyToClipboard } from "@/lib/utils";
-import { isProduction } from "@/lib/config";
+import { KebabMark } from "./KebabMark";
 
 const MAX_SESSIONS = 5;
 
@@ -31,17 +31,6 @@ export function Topbar() {
 
   // Mobile search toggle
   const [searchVisible, setSearchVisible] = useState(false);
-
-  // GitHub stars count (only fetch in production)
-  const [starsCount, setStarsCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!isProduction) return;
-    fetch("https://api.github.com/repos/adrgs/requestrepo")
-      .then((res) => res.json())
-      .then((data) => setStarsCount(data.stargazers_count))
-      .catch(() => setStarsCount(null));
-  }, []);
 
   // Get unread count for a specific subdomain
   const getUnreadCount = (subdomain: string) => {
@@ -95,7 +84,7 @@ export function Topbar() {
   };
 
   return (
-    <div className="flex h-[50px] items-center justify-between bg-white px-3 shadow-sm dark:bg-zinc-800 md:px-5">
+    <div className="lab-topbar flex h-16 items-center justify-between px-3 md:px-5">
       {/* Left: Hamburger + Logo + Star + Badge */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
         {/* Hamburger menu - mobile only */}
@@ -104,30 +93,24 @@ export function Topbar() {
           variant="light"
           size="sm"
           radius="full"
+          aria-label="Open request queue"
           onPress={toggleSidebar}
           className="shrink-0 lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </Button>
 
-        <a href="/" className="flex shrink-0 items-center">
-          <img src="/logo.svg" alt="requestrepo" className="h-5" />
+        <a
+          href="/"
+          className="lab-brand flex shrink-0 items-center gap-2"
+          aria-label="KebabEngineers Request Lab home"
+        >
+          <KebabMark className="h-10 w-10 text-primary" />
+          <div>
+            <strong>KebabEngineers</strong>
+            <span>REQUEST LAB</span>
+          </div>
         </a>
-
-        {isProduction && (
-          <Tooltip content="Star on GitHub">
-            <a
-              href="https://github.com/adrgs/requestrepo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden shrink-0 items-center gap-1.5 rounded-full bg-default-100 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-default-200 md:flex"
-            >
-              <Star className="h-3.5 w-3.5" />
-              {starsCount !== null && <span>{starsCount}</span>}
-            </a>
-          </Tooltip>
-        )}
-
         {/* Session Tabs - scrollable on mobile */}
         {sessions.length > 0 && (
           <div className="ml-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto md:ml-2">
@@ -150,6 +133,7 @@ export function Topbar() {
                   )}
                   <span className="font-mono">{session.subdomain}</span>
                   <button
+                    aria-label={`Close session ${session.subdomain}`}
                     className="ml-1 hidden opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 md:block"
                     onClick={(e) => handleCloseSession(e, session.subdomain)}
                   >
@@ -170,6 +154,7 @@ export function Topbar() {
             variant="light"
             size="sm"
             radius="full"
+            aria-label="New session"
             onPress={handleCreateSession}
           >
             <Plus className="h-4 w-4" />
@@ -182,6 +167,7 @@ export function Topbar() {
             variant="light"
             size="sm"
             radius="full"
+            aria-label="Share session"
             onPress={handleShare}
             className="hidden md:flex"
           >
@@ -197,6 +183,7 @@ export function Topbar() {
           variant="light"
           size="sm"
           radius="full"
+          aria-label="Toggle search"
           onPress={() => setSearchVisible(!searchVisible)}
           className="md:hidden"
         >
@@ -205,7 +192,8 @@ export function Topbar() {
 
         {/* Desktop search - always visible */}
         <Input
-          placeholder="Search..."
+          aria-label="Search requests"
+          placeholder="Search requests…"
           size="sm"
           variant="flat"
           value={searchQuery}
@@ -222,9 +210,10 @@ export function Topbar() {
 
       {/* Mobile search bar - expandable */}
       {searchVisible && (
-        <div className="absolute left-0 right-0 top-[50px] z-50 bg-white p-2 shadow-md dark:bg-zinc-800 md:hidden">
+        <div className="absolute left-0 right-0 top-16 z-50 bg-white p-2 shadow-md dark:bg-zinc-800 md:hidden">
           <Input
-            placeholder="Search requests..."
+            aria-label="Search requests on mobile"
+            placeholder="Search requests…"
             size="sm"
             variant="flat"
             value={searchQuery}
