@@ -10,10 +10,14 @@ import { useAuthStore } from "@/stores/authStore";
 import { apiClient, isAdminRequiredError } from "@/api/client";
 import { copyToClipboard } from "@/lib/utils";
 import { KebabMark } from "./KebabMark";
+import { SessionNaming } from "./SessionNaming";
+import { KeyboardShortcuts } from "./KeyboardShortcuts";
+import { useLabStore } from "@/stores/labStore";
 
 const MAX_SESSIONS = 5;
 
 export function Topbar() {
+  const sessionLabels = useLabStore((s) => s.sessionLabels);
   const sessions = useSessionStore((s) => s.sessions);
   const activeSubdomain = useSessionStore((s) => s.activeSubdomain);
   const addSession = useSessionStore((s) => s.addSession);
@@ -106,7 +110,7 @@ export function Topbar() {
           aria-label="KebabEngineers Request Lab home"
         >
           <KebabMark className="h-10 w-10 text-primary" />
-          <div>
+          <div className="hidden sm:block">
             <strong>KebabEngineers</strong>
             <span>REQUEST LAB</span>
           </div>
@@ -124,17 +128,29 @@ export function Topbar() {
                       ? "bg-primary/10 text-primary"
                       : "bg-default-100 text-default-600 hover:bg-default-200"
                   }`}
-                  onClick={() => setActiveSession(session.subdomain)}
                 >
-                  {unreadCount > 0 && (
-                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                      {unreadCount}
-                    </span>
-                  )}
-                  <span className="font-mono">{session.subdomain}</span>
                   <button
-                    aria-label={`Close session ${session.subdomain}`}
-                    className="ml-1 hidden opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 md:block"
+                    type="button"
+                    className="flex min-w-0 items-center gap-1.5"
+                    aria-label={`Switch to session ${sessionLabels[session.subdomain] || session.subdomain}`}
+                    aria-current={
+                      session.subdomain === activeSubdomain ? "true" : undefined
+                    }
+                    title={session.subdomain}
+                    onClick={() => setActiveSession(session.subdomain)}
+                  >
+                    {unreadCount > 0 && (
+                      <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                        {unreadCount}
+                      </span>
+                    )}
+                    <span className="max-w-40 truncate">
+                      {sessionLabels[session.subdomain] || session.subdomain}
+                    </span>
+                  </button>
+                  <button
+                    aria-label={`Close session ${sessionLabels[session.subdomain] || session.subdomain}`}
+                    className="ml-1 rounded p-1 opacity-70 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                     onClick={(e) => handleCloseSession(e, session.subdomain)}
                   >
                     <X className="h-3 w-3" />
@@ -148,6 +164,8 @@ export function Topbar() {
 
       {/* Right: Icons + Search */}
       <div className="flex shrink-0 items-center gap-1">
+        <SessionNaming />
+        <KeyboardShortcuts />
         <Tooltip content="New session">
           <Button
             isIconOnly
@@ -198,6 +216,12 @@ export function Topbar() {
           variant="flat"
           value={searchQuery}
           onValueChange={setSearchQuery}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setSearchQuery("");
+              event.currentTarget.blur();
+            }
+          }}
           startContent={<Search className="h-4 w-4 text-default-400" />}
           className="ml-2 hidden w-44 md:block"
           radius="full"
@@ -218,6 +242,12 @@ export function Topbar() {
             variant="flat"
             value={searchQuery}
             onValueChange={setSearchQuery}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setSearchQuery("");
+                setSearchVisible(false);
+              }
+            }}
             startContent={<Search className="h-4 w-4 text-default-400" />}
             endContent={
               <Button

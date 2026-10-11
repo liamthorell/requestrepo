@@ -12,6 +12,7 @@ import { getBaseDomain } from "@/lib/config";
 
 export function Toolbar() {
   const scheme = useLabStore((s) => s.scheme);
+  const moveSessionLabel = useLabStore((s) => s.moveSessionLabel);
   const setScheme = useLabStore((s) => s.setScheme);
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,6 +44,7 @@ export function Toolbar() {
         token: response.token,
         createdAt: new Date().toISOString(),
       });
+      moveSessionLabel(activeSubdomain, response.subdomain);
       toast.success(`New URL: ${response.subdomain}`);
     } catch (error) {
       if (isAdminRequiredError(error)) {

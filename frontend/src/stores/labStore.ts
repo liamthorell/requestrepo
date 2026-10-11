@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface LabState {
+  sessionLabels: Record<string, string>;
+  setSessionLabel: (subdomain: string, label: string) => void;
+  moveSessionLabel: (oldSubdomain: string, newSubdomain: string) => void;
   bookmarks: Record<string, Record<string, boolean>>;
   notes: Record<string, Record<string, string>>;
   onlyBookmarks: boolean;
@@ -17,6 +20,23 @@ interface LabState {
 export const useLabStore = create<LabState>()(
   persist(
     (set) => ({
+      sessionLabels: {},
+      setSessionLabel: (subdomain, label) =>
+        set((state) => {
+          const sessionLabels = { ...state.sessionLabels };
+          const cleaned = label.trim().replace(/\s+/g, " ").slice(0, 48);
+          if (cleaned) sessionLabels[subdomain] = cleaned;
+          else delete sessionLabels[subdomain];
+          return { sessionLabels };
+        }),
+      moveSessionLabel: (oldSubdomain, newSubdomain) =>
+        set((state) => {
+          const sessionLabels = { ...state.sessionLabels };
+          if (sessionLabels[oldSubdomain])
+            sessionLabels[newSubdomain] = sessionLabels[oldSubdomain];
+          delete sessionLabels[oldSubdomain];
+          return { sessionLabels };
+        }),
       bookmarks: {},
       notes: {},
       onlyBookmarks: false,
@@ -50,7 +70,14 @@ export const useLabStore = create<LabState>()(
     }),
     {
       name: "kebab-requestlab",
-      partialize: ({ bookmarks, notes, scheme, followRequests }) => ({
+      partialize: ({
+        bookmarks,
+        notes,
+        scheme,
+        followRequests,
+        sessionLabels,
+      }) => ({
+        sessionLabels,
         bookmarks,
         notes,
         scheme,

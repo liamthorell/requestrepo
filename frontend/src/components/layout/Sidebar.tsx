@@ -20,7 +20,7 @@ import {
 import { useUiStore } from "@/stores/uiStore";
 import { apiClient } from "@/api/client";
 import { useLabStore } from "@/stores/labStore";
-import { matchesRequest, downloadEvidence } from "@/lib/lab";
+import { visibleRequests, downloadEvidence } from "@/lib/lab";
 import { cn, formatRelativeTime, getFlagClass } from "@/lib/utils";
 import type { Request } from "@/types";
 import { isHttpRequest, isSmtpRequest } from "@/types";
@@ -71,29 +71,27 @@ export function Sidebar({ onClose }: SidebarProps) {
   const prevRequestCountRef = useRef<number>(0);
   const initialScrollDoneRef = useRef<boolean>(false);
 
-  const filteredRequests = useMemo(() => {
-    return requests
-      .filter((r) => {
-        // Type filter
-        if (r.type === "http" && !httpFilter) return false;
-        if (r.type === "dns" && !dnsFilter) return false;
-        if (r.type === "smtp" && !smtpFilter) return false;
-
-        if (onlyBookmarks && !bookmarks[activeSubdomain ?? ""]?.[r._id])
-          return false;
-        return matchesRequest(r, searchQuery);
-      })
-      .sort((a, b) => a.date - b.date); // oldest first, newest at bottom
-  }, [
-    requests,
-    httpFilter,
-    dnsFilter,
-    smtpFilter,
-    searchQuery,
-    onlyBookmarks,
-    bookmarks,
-    activeSubdomain,
-  ]);
+  const filteredRequests = useMemo(
+    () =>
+      visibleRequests(requests, {
+        http: httpFilter,
+        dns: dnsFilter,
+        smtp: smtpFilter,
+        search: searchQuery,
+        onlyBookmarks,
+        bookmarks: bookmarks[activeSubdomain ?? ""] ?? {},
+      }),
+    [
+      requests,
+      httpFilter,
+      dnsFilter,
+      smtpFilter,
+      searchQuery,
+      onlyBookmarks,
+      bookmarks,
+      activeSubdomain,
+    ],
+  );
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -392,6 +390,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             return (
               <div
                 key={request._id}
+                data-request-id={request._id}
                 ref={(el) => {
                   if (el) requestRefs.current.set(request._id, el);
                   else requestRefs.current.delete(request._id);

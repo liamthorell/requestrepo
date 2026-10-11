@@ -18,8 +18,17 @@ served at **https://req.havet.dev**. The `kebab-lab` branch starts from upstream
 - Pause/follow for automatic queue scrolling. Capture continues while paused.
 - Mobile queue closes when a request is selected; keyboard focus is visible.
 - Confirmation before deleting an entire session's captured requests.
+- Challenge labels for sessions, with a tag button in the header. Labels stay with
+  the logical session when you rotate its callback URL, and sync between tabs.
+- A response cookbook for HTML, JSON, CORS-enabled JSON, HTTP(S) redirects and
+  204 responses. Applying a preset changes the current draft; press Save to publish.
+  The editor shows whether a draft is unsaved and resets it when changing sessions.
+- Keyboard shortcuts: `/` or Ctrl/Cmd+K for search; J/K for next/previous visible
+  request; B to bookmark; C to copy the callback URL; P to pause/follow; 1/2/3 for
+  Requests/Response/DNS; `?` for the guide. Single-key shortcuts ignore typing and
+  dialogs. Ctrl/Cmd+S still saves in the response editor.
 
-Bookmarks, notes, scheme and follow preferences are saved **in this browser**.
+Labels, bookmarks, notes, scheme and follow preferences are saved **in this browser**.
 They do not persist captured requests. The upstream backend still uses its
 temporary in-memory cache, so export anything you need to preserve. Deployment
 restarts also clear that cache; existing session tokens remain compatible.
@@ -44,7 +53,9 @@ pause/follow, snippets, response editing, themes and mobile layout.
 With Playwright's browser installed, run `node tests/browser.mjs` from `frontend`.
 Set `REQUESTLAB_URL=https://req.havet.dev` to check the deployed app, or
 `CHROMIUM_PATH` to use an existing browser binary. Set `REQUESTLAB_SCREENSHOTS`
-to a directory to save visual checks.
+to a directory to save visual checks. `node tests/qol-browser.mjs` checks named
+sessions, keyboard shortcuts, preset drafts and live response status/headers,
+cross-session editor isolation and mobile controls using the same environment flags.
 
 ## Deployment and upgrades
 

@@ -40,6 +40,28 @@ export function matchesRequest(request: Request, query: string): boolean {
   return searchable.payload.includes(needle);
 }
 
+export interface QueueFilters {
+  http: boolean;
+  dns: boolean;
+  smtp: boolean;
+  search: string;
+  onlyBookmarks: boolean;
+  bookmarks: Record<string, boolean>;
+}
+export function visibleRequests(
+  requests: Request[],
+  filters: QueueFilters,
+): Request[] {
+  return requests
+    .filter((request) => {
+      if (!filters[request.type]) return false;
+      if (filters.onlyBookmarks && !filters.bookmarks[request._id])
+        return false;
+      return matchesRequest(request, filters.search);
+    })
+    .sort((a, b) => a.date - b.date);
+}
+
 export function callbackSnippets(
   httpDomain: string,
   dnsDomain: string,

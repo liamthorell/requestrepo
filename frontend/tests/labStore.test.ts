@@ -19,6 +19,31 @@ Object.defineProperty(globalThis, "window", {
 const { useLabStore } = await import("../src/stores/labStore");
 
 describe("browser evidence notebook", () => {
+  it("keeps the challenge label when rotating a callback URL", () => {
+    useLabStore.getState().setSessionLabel("old-url", "A".repeat(80));
+    useLabStore.getState().moveSessionLabel("old-url", "new-url");
+    assert.equal(useLabStore.getState().sessionLabels["old-url"], undefined);
+    assert.equal(useLabStore.getState().sessionLabels["new-url"].length, 48);
+  });
+  it("saves normalized session labels without changing the callback domain", async () => {
+    useLabStore
+      .getState()
+      .setSessionLabel("label-session", "  SSRF   warmup  ");
+    assert.equal(
+      useLabStore.getState().sessionLabels["label-session"],
+      "SSRF warmup",
+    );
+    await useLabStore.persist.rehydrate();
+    assert.equal(
+      useLabStore.getState().sessionLabels["label-session"],
+      "SSRF warmup",
+    );
+    useLabStore.getState().setSessionLabel("label-session", " ");
+    assert.equal(
+      useLabStore.getState().sessionLabels["label-session"],
+      undefined,
+    );
+  });
   it("keeps notes saved in another tab when changing a preference", () => {
     const external = {
       state: {
@@ -85,12 +110,14 @@ describe("browser evidence notebook", () => {
     assert.equal(useLabStore.getState().followRequests, false);
   });
   it("does not persist captured payloads or session credentials", () => {
+    useLabStore.getState().setScheme("https");
     const saved = JSON.parse(entries.get("kebab-requestlab")!);
     assert.deepEqual(Object.keys(saved.state).sort(), [
       "bookmarks",
       "followRequests",
       "notes",
       "scheme",
+      "sessionLabels",
     ]);
   });
 });
