@@ -16,7 +16,7 @@ import {
 } from "@/types";
 import { formatDate, copyToClipboard, getFlagClass } from "@/lib/utils";
 import { decodeBase64Safe } from "@/lib/base64";
-import { LabWelcome } from "@/components/layout/LabWelcome";
+import { LabWelcome, LabFooter } from "@/components/layout/LabWelcome";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -126,7 +126,7 @@ export function RequestsPage() {
       <div className="flex h-full flex-col">
         <LabWelcome />
         <details className="automation-details">
-          <summary>Python automation example</summary>
+          <summary>Scripting it from Python</summary>
           <div className="flex-1">
             <p className="mb-3 text-default-500">
               Automate requests/responses using the requestrepo Python library:
@@ -151,7 +151,9 @@ export function RequestsPage() {
                 <Editor
                   height="320px"
                   language="python"
-                  theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+                  theme={
+                    resolvedTheme === "dark" ? "kebab-dark" : "kebab-light"
+                  }
                   value={PYTHON_EXAMPLE.replace(
                     /TOKEN_HERE/g,
                     session?.token
@@ -186,6 +188,7 @@ export function RequestsPage() {
             </Card>
           </div>
         </details>
+        <LabFooter />
       </div>
     );
   }
@@ -207,7 +210,7 @@ export function RequestsPage() {
     ].join("\n");
 
     return (
-      <Card className="h-full overflow-auto">
+      <Card className="h-full overflow-auto border border-[var(--lab-line)]">
         <CardBody className="p-4 relative">
           {/* Share button - only show if user has the session */}
           {!isSharedRequestView && (
@@ -231,7 +234,7 @@ export function RequestsPage() {
           )}
 
           {/* Request Details */}
-          <h3 className="text-base font-semibold mb-2">Request Details</h3>
+          <h3 className="mb-2 text-sm font-semibold">Request Details</h3>
           <table className="w-full text-xs mb-4">
             <tbody>
               <tr className="border-b border-default-100">
@@ -239,21 +242,9 @@ export function RequestsPage() {
                   Request Type
                 </td>
                 <td className="py-1">
-                  <span className="inline-block px-1 py-px text-[8px] font-semibold text-white bg-blue-500 rounded mr-1">
-                    HTTP/1.1
-                  </span>
+                  <span className="method method-tag">HTTP/1.1</span>
                   <span
-                    className={`inline-block px-1 py-px text-[8px] font-semibold text-white rounded ${
-                      selectedRequest.method === "GET"
-                        ? "bg-[#20d077]"
-                        : selectedRequest.method === "POST"
-                          ? "bg-[#ffae00]"
-                          : selectedRequest.method === "PUT"
-                            ? "bg-[#ff9800]"
-                            : selectedRequest.method === "DELETE"
-                              ? "bg-[#f44336]"
-                              : "bg-[#9e9e9e]"
-                    }`}
+                    className={`method method-tag m-${selectedRequest.method.toLowerCase()}`}
                   >
                     {selectedRequest.method}
                   </span>
@@ -261,7 +252,7 @@ export function RequestsPage() {
               </tr>
               <tr className="border-b border-default-100">
                 <td className="py-1 pr-4 text-default-500">URL</td>
-                <td className="py-1 font-mono text-primary">
+                <td className="py-1 font-mono text-[var(--lab-accent-ink)]">
                   {selectedRequest.url}
                 </td>
               </tr>
@@ -314,7 +305,7 @@ export function RequestsPage() {
           </table>
 
           {/* Headers */}
-          <h3 className="text-base font-semibold mb-2">Headers</h3>
+          <h3 className="mb-2 text-sm font-semibold">Headers</h3>
           <table className="w-full text-xs mb-4">
             <tbody>
               {Object.entries(selectedRequest.headers).map(([key, value]) => (
@@ -329,7 +320,7 @@ export function RequestsPage() {
           </table>
 
           {/* Query Parameters */}
-          <h3 className="text-base font-semibold mb-2">Query Parameters</h3>
+          <h3 className="mb-2 text-sm font-semibold">Query Parameters</h3>
           {queryParams && Array.from(queryParams.entries()).length > 0 ? (
             <table className="w-full text-xs mb-4">
               <tbody>
@@ -348,7 +339,7 @@ export function RequestsPage() {
           )}
 
           {/* Form Data / Body */}
-          <h3 className="text-base font-semibold mb-2">Form Data</h3>
+          <h3 className="mb-2 text-sm font-semibold">Form Data</h3>
           {selectedRequest.raw ? (
             <Code className="block whitespace-pre-wrap p-2 text-xs mb-4">
               {isPrintable
@@ -360,7 +351,7 @@ export function RequestsPage() {
           )}
 
           {/* Raw request */}
-          <h3 className="text-base font-semibold mb-2">Raw request</h3>
+          <h3 className="mb-2 text-sm font-semibold">Raw request</h3>
           <Code className="block p-3 text-xs mb-2 overflow-x-auto break-all whitespace-pre-wrap min-h-[60px]">
             {btoa(rawRequest)}
           </Code>
@@ -376,7 +367,7 @@ export function RequestsPage() {
     const rawDecoded = decodeBase64Safe(selectedRequest.raw);
 
     return (
-      <Card className="h-full overflow-auto">
+      <Card className="h-full overflow-auto border border-[var(--lab-line)]">
         <CardBody className="p-4 relative">
           {/* Share button - only show if user has the session */}
           {!isSharedRequestView && (
@@ -400,7 +391,7 @@ export function RequestsPage() {
           )}
 
           {/* Request Details */}
-          <h3 className="text-base font-semibold mb-2">Request Details</h3>
+          <h3 className="mb-2 text-sm font-semibold">Request Details</h3>
           <table className="w-full text-xs mb-4">
             <tbody>
               <tr className="border-b border-default-100">
@@ -408,9 +399,7 @@ export function RequestsPage() {
                   Request Type
                 </td>
                 <td className="py-1">
-                  <span className="inline-block px-1 py-px text-[8px] font-semibold text-white bg-[#33daff] rounded">
-                    DNS
-                  </span>
+                  <span className="method method-tag m-dns">DNS</span>
                 </td>
               </tr>
               <tr className="border-b border-default-100">
@@ -451,21 +440,7 @@ export function RequestsPage() {
               <tr>
                 <td className="py-1 pr-4 text-default-500">Type</td>
                 <td className="py-1">
-                  <span
-                    className={`inline-block px-1 py-px text-[8px] font-semibold text-white rounded ${
-                      selectedRequest.query_type === "A"
-                        ? "bg-[#006fee]"
-                        : selectedRequest.query_type === "AAAA"
-                          ? "bg-[#9353d3]"
-                          : selectedRequest.query_type === "CNAME"
-                            ? "bg-[#f5a524]"
-                            : selectedRequest.query_type === "TXT"
-                              ? "bg-[#17c964]"
-                              : selectedRequest.query_type === "MX"
-                                ? "bg-[#f31260]"
-                                : "bg-[#71717a]"
-                    }`}
-                  >
+                  <span className="method method-tag">
                     {selectedRequest.query_type}
                   </span>
                 </td>
@@ -474,13 +449,13 @@ export function RequestsPage() {
           </table>
 
           {/* Reply */}
-          <h3 className="text-base font-semibold mb-2">Reply</h3>
+          <h3 className="mb-2 text-sm font-semibold">Reply</h3>
           <Code className="block whitespace-pre-wrap p-2 text-xs font-mono mb-4 overflow-x-auto">
             {selectedRequest.reply || "No response"}
           </Code>
 
           {/* Raw request */}
-          <h3 className="text-base font-semibold mb-2">Raw request</h3>
+          <h3 className="mb-2 text-sm font-semibold">Raw request</h3>
           <Code className="block p-3 text-xs mb-2 overflow-x-auto break-all">
             {selectedRequest.raw}
           </Code>
@@ -496,7 +471,7 @@ export function RequestsPage() {
     const rawDecoded = decodeBase64Safe(selectedRequest.raw);
 
     return (
-      <Card className="h-full overflow-auto">
+      <Card className="h-full overflow-auto border border-[var(--lab-line)]">
         <CardBody className="p-4 relative">
           {/* Share button - only show if user has the session */}
           {!isSharedRequestView && (
@@ -520,7 +495,7 @@ export function RequestsPage() {
           )}
 
           {/* Request Details */}
-          <h3 className="text-base font-semibold mb-2">Request Details</h3>
+          <h3 className="mb-2 text-sm font-semibold">Request Details</h3>
           <table className="w-full text-xs mb-4">
             <tbody>
               <tr className="border-b border-default-100">
@@ -528,9 +503,7 @@ export function RequestsPage() {
                   Request Type
                 </td>
                 <td className="py-1">
-                  <span className="inline-block px-1 py-px text-[8px] font-semibold text-white bg-[#e91e63] rounded">
-                    SMTP
-                  </span>
+                  <span className="method method-tag m-smtp">SMTP</span>
                 </td>
               </tr>
               <tr className="border-b border-default-100">
@@ -571,7 +544,7 @@ export function RequestsPage() {
             selectedRequest.cc ||
             selectedRequest.bcc) && (
             <>
-              <h3 className="text-base font-semibold mb-2">Email Headers</h3>
+              <h3 className="mb-2 text-sm font-semibold">Email Headers</h3>
               <table className="w-full text-xs mb-4">
                 <tbody>
                   {selectedRequest.subject && (
@@ -618,7 +591,7 @@ export function RequestsPage() {
             selectedRequest.text_body ||
             selectedRequest.html_body) && (
             <>
-              <h3 className="text-base font-semibold mb-2">Email Body</h3>
+              <h3 className="mb-2 text-sm font-semibold">Email Body</h3>
               <Tabs
                 aria-label="Email body views"
                 variant="underlined"
@@ -656,7 +629,7 @@ export function RequestsPage() {
           {selectedRequest.attachments &&
             selectedRequest.attachments.length > 0 && (
               <>
-                <h3 className="text-base font-semibold mb-2">
+                <h3 className="mb-2 text-sm font-semibold">
                   Attachments ({selectedRequest.attachments.length})
                 </h3>
                 <div className="space-y-2 mb-4">
@@ -699,7 +672,7 @@ export function RequestsPage() {
             )}
 
           {/* Raw SMTP Transaction */}
-          <h3 className="text-base font-semibold mb-2">Raw SMTP Transaction</h3>
+          <h3 className="mb-2 text-sm font-semibold">Raw SMTP Transaction</h3>
           <Code className="block whitespace-pre-wrap p-3 text-sm font-mono overflow-auto min-h-[200px] max-h-[500px]">
             {rawDecoded.text}
           </Code>

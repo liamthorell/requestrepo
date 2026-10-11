@@ -8,7 +8,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/react";
-import { WandSparkles } from "lucide-react";
+import { ListPlus } from "lucide-react";
 import { RESPONSE_PRESETS, responsePreset, type PresetKey } from "@/lib/qol";
 
 export function ResponsePresets({
@@ -36,30 +36,28 @@ export function ResponsePresets({
   };
   return (
     <>
-      <Button
+      <button
+        type="button"
         aria-label="Response presets"
-        size="sm"
-        variant="flat"
-        color="primary"
-        startContent={<WandSparkles size={15} />}
-        isDisabled={disabled}
-        onPress={() => {
+        className="text-btn"
+        disabled={disabled}
+        onClick={() => {
           setError("");
           setOpen(true);
         }}
       >
+        <ListPlus size={14} />
         Presets
-      </Button>
+      </button>
       <Modal
         isOpen={open}
         onOpenChange={setOpen}
         size="lg"
-        backdrop="blur"
         scrollBehavior="inside"
       >
         <ModalContent>
           <ModalHeader className="flex-col gap-1">
-            <span>Response cookbook</span>
+            <span>Start from a preset</span>
             <span className="font-mono text-xs font-normal text-default-500">
               {fileName}
             </span>
@@ -95,8 +93,8 @@ export function ResponsePresets({
               />
             )}
             <p className="text-sm text-default-500">
-              Applying replaces this file’s draft body, status and headers.
-              Review the draft and press Save to publish it.
+              Replaces the body, status and headers in the editor. Nothing is
+              served until you save.
             </p>
           </ModalBody>
           <ModalFooter>
@@ -104,7 +102,7 @@ export function ResponsePresets({
               Cancel
             </Button>
             <Button color="primary" onPress={apply}>
-              Apply to draft
+              Use preset
             </Button>
           </ModalFooter>
         </ModalContent>

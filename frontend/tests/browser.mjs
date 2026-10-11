@@ -29,9 +29,9 @@ if (screenshots) await mkdir(screenshots, { recursive: true });
 try {
   await page.goto(base);
   await page
-    .getByRole("textbox", { name: "Admin Password", exact: true })
+    .getByRole("textbox", { name: "Password", exact: true })
     .fill(password);
-  await page.getByRole("button", { name: "Fire up a session" }).click();
+  await page.getByRole("button", { name: "Open a session" }).click();
   await page.getByRole("textbox", { name: "Callback domain" }).waitFor();
   await page.waitForFunction(() =>
     document
@@ -159,7 +159,7 @@ try {
   assert.match(
     await page
       .getByRole("dialog")
-      .locator(".snippet-card code")
+      .locator(".snippet-table code")
       .first()
       .innerText(),
     /http:\/\//,

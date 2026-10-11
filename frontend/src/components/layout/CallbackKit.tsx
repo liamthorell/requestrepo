@@ -7,7 +7,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/react";
-import { Copy, Terminal } from "lucide-react";
+import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLabStore } from "@/stores/labStore";
@@ -15,7 +15,7 @@ import { callbackSnippets } from "@/lib/lab";
 import { getBaseDomain, getDnsDomain } from "@/lib/config";
 import { copyToClipboard } from "@/lib/utils";
 
-export function SnippetCards() {
+export function SnippetTable() {
   const subdomain = useSessionStore((s) => s.activeSubdomain);
   const scheme = useLabStore((s) => s.scheme);
   const snippets = callbackSnippets(
@@ -24,32 +24,35 @@ export function SnippetCards() {
     scheme,
   );
   return (
-    <div className="snippet-grid">
-      {snippets.map((snippet) => (
-        <div key={snippet.label} className="snippet-card">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3>{snippet.label}</h3>
-              <p>{snippet.detail}</p>
-            </div>
-            <Button
-              aria-label={`Copy ${snippet.label}`}
-              isIconOnly
-              size="sm"
-              variant="light"
-              isDisabled={!subdomain}
-              onPress={async () => {
-                await copyToClipboard(snippet.code);
-                toast.success(`${snippet.label} copied`);
-              }}
-            >
-              <Copy size={15} />
-            </Button>
-          </div>
-          <code>{snippet.code}</code>
-        </div>
-      ))}
-    </div>
+    <table className="snippet-table">
+      <tbody>
+        {snippets.map((snippet) => (
+          <tr key={snippet.label}>
+            <td>
+              {snippet.label}
+              <span>{snippet.detail}</span>
+            </td>
+            <td>
+              <code>{snippet.code}</code>
+            </td>
+            <td>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`Copy ${snippet.label}`}
+                disabled={!subdomain}
+                onClick={async () => {
+                  await copyToClipboard(snippet.code);
+                  toast.success(`Copied ${snippet.label.toLowerCase()}`);
+                }}
+              >
+                <Copy size={14} />
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -57,32 +60,29 @@ export function CallbackKit() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button
+      <button
+        type="button"
         aria-label="Callback snippets"
-        size="sm"
-        variant="bordered"
-        className="min-w-8 px-2 sm:min-w-20 sm:px-3"
-        startContent={<Terminal size={15} />}
-        onPress={() => setOpen(true)}
+        className="nav-tab hidden sm:inline-flex"
+        onClick={() => setOpen(true)}
       >
-        <span className="hidden sm:inline">Snippets</span>
-      </Button>
+        Snippets
+      </button>
       <Modal
         isOpen={open}
         onOpenChange={setOpen}
         size="3xl"
         scrollBehavior="inside"
-        backdrop="blur"
       >
         <ModalContent>
           <ModalHeader className="flex-col gap-1">
-            <span>Callback cookbook</span>
+            <span>Snippets</span>
             <span className="text-sm font-normal text-default-500">
-              Ready to copy, using your active session and chosen HTTP scheme.
+              Filled in with the active session and scheme.
             </span>
           </ModalHeader>
           <ModalBody>
-            <SnippetCards />
+            <SnippetTable />
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={() => setOpen(false)}>

@@ -30,7 +30,7 @@ async function preset(name, target) {
   await page.locator(".preset-grid").getByRole("button", { name }).click();
   if (target)
     await page.getByRole("textbox", { name: "Redirect target" }).fill(target);
-  await button("Apply to draft").click();
+  await button("Use preset").click();
 }
 async function save() {
   await button("Save").click();
@@ -39,9 +39,9 @@ async function save() {
 try {
   await page.goto(base);
   await page
-    .getByRole("textbox", { name: "Admin Password", exact: true })
+    .getByRole("textbox", { name: "Password", exact: true })
     .fill(password);
-  await button("Fire up a session").click();
+  await button("Open a session").click();
   await page.waitForFunction(() =>
     document
       .querySelector('input[aria-label="Callback domain"]')
@@ -57,7 +57,7 @@ try {
   await page
     .getByRole("textbox", { name: "Session label" })
     .fill("SSRF warmup");
-  await button("Save label").click();
+  await button("Save").click();
   await button("Switch to session SSRF warmup").waitFor();
   assert.equal(
     await page.getByRole("textbox", { name: "Callback domain" }).inputValue(),
@@ -79,7 +79,7 @@ try {
     () => document.querySelectorAll(".queue-item").length === 2,
   );
   await page
-    .getByRole("heading", { name: "The grill is hot.", exact: false })
+    .getByRole("heading", { name: "This session is listening on", exact: false })
     .click();
   const ids = await page
     .locator(".queue-item")
@@ -172,7 +172,7 @@ try {
     .fill("https://example.com/kebab-qa");
   if (screenshots)
     await page.screenshot({ path: path.join(screenshots, "presets.png") });
-  await button("Apply to draft").click();
+  await button("Use preset").click();
   await save();
   reply = await fetch(`https://${domain}/`, { redirect: "manual" });
   assert.equal(reply.status, 302);

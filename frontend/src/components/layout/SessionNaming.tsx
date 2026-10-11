@@ -24,13 +24,12 @@ export function SessionNaming() {
   return (
     <>
       <Tooltip content="Name this session">
-        <Button
-          isIconOnly
-          size="sm"
-          variant="light"
+        <button
+          type="button"
+          className="icon-btn"
           aria-label="Name session"
-          isDisabled={!subdomain}
-          onPress={() => {
+          disabled={!subdomain}
+          onClick={() => {
             if (subdomain) {
               setDraft(labels[subdomain] ?? "");
               setEditing(subdomain);
@@ -38,7 +37,7 @@ export function SessionNaming() {
           }}
         >
           <Tag size={16} />
-        </Button>
+        </button>
       </Tooltip>
       <Modal
         isOpen={!!editing}
@@ -46,7 +45,6 @@ export function SessionNaming() {
           if (!open) setEditing(null);
         }}
         size="md"
-        backdrop="blur"
       >
         <ModalContent>
           <form
@@ -54,29 +52,29 @@ export function SessionNaming() {
               event.preventDefault();
               if (editing) setLabel(editing, draft);
               setEditing(null);
-              toast.success("Session label saved");
+              toast.success("Label saved");
             }}
           >
             <ModalHeader>Name this session</ModalHeader>
             <ModalBody>
               <p className="text-sm text-default-500">
-                Keep challenge URLs easy to recognize. Labels are saved in this
-                browser and shared between its tabs.
+                Shown on the session tab instead of the random ID. Stored in
+                this browser only.
               </p>
               <Input
                 label="Session label"
-                placeholder="e.g. SSRF warmup"
+                placeholder="web/ssrf-me"
                 maxLength={48}
                 value={draft}
                 onValueChange={setDraft}
                 autoFocus
               />
-              <code className="rounded-lg bg-default-100 p-3 text-xs break-all">
-                {editing}.{getBaseDomain()}
-              </code>
               <p className="text-xs text-default-500">
-                The callback URL stays the same. Clear the label to display the
-                session ID again.
+                The URL stays{" "}
+                <code className="break-all text-default-700">
+                  {editing}.{getBaseDomain()}
+                </code>
+                . Leave the field empty to go back to the ID.
               </p>
             </ModalBody>
             <ModalFooter>
@@ -84,7 +82,7 @@ export function SessionNaming() {
                 Cancel
               </Button>
               <Button color="primary" type="submit">
-                Save label
+                Save
               </Button>
             </ModalFooter>
           </form>

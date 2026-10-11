@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button, Input } from "@heroui/react";
-import { Download, FileEdit, Network, Copy, Shuffle } from "lucide-react";
+import { Tooltip } from "@heroui/react";
+import { Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -29,7 +29,7 @@ export function Toolbar() {
 
   const handleCopyUrl = () => {
     copyToClipboard(`${scheme}://${fullDomain}`);
-    toast.success("URL copied to clipboard");
+    toast.success("URL copied");
   };
 
   const handleNewUrl = async () => {
@@ -56,116 +56,74 @@ export function Toolbar() {
   };
 
   const tabs = [
-    { key: "requests", label: "Requests", icon: Download },
-    { key: "response", label: "Response", icon: FileEdit },
-    { key: "dns", label: "DNS", icon: Network },
+    { key: "requests", label: "Requests", shortcut: "1" },
+    { key: "response", label: "Response", shortcut: "2" },
+    { key: "dns", label: "DNS", shortcut: "3" },
   ];
 
   return (
-    <div className="lab-toolbar flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-1 rounded-full bg-default-100 p-1">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = currentPath === tab.key;
-          return (
-            <Button
-              aria-label={tab.label}
-              key={tab.key}
-              variant={isActive ? "solid" : "light"}
-              color={isActive ? "primary" : "default"}
-              size="sm"
-              radius="full"
-              startContent={<Icon className="h-4 w-4" />}
-              onPress={() => navigate(`/${tab.key}`)}
-              className={isActive ? "" : "bg-transparent"}
-            >
-              <span>{tab.label}</span>
-            </Button>
-          );
-        })}
-      </div>
+    <div className="lab-toolbar flex flex-wrap items-center justify-between gap-x-4 px-4 md:px-6">
+      <nav className="flex items-center">
+        {tabs.map((tab) => (
+          <button
+            type="button"
+            aria-label={tab.label}
+            key={tab.key}
+            className="nav-tab"
+            aria-current={currentPath === tab.key ? "page" : undefined}
+            onClick={() => navigate(`/${tab.key}`)}
+          >
+            {tab.label}
+            <span className="nav-key">{tab.shortcut}</span>
+          </button>
+        ))}
+        <CallbackKit />
+      </nav>
 
-      <CallbackKit />
-      {/* URL and Actions */}
-      <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-2 xl:flex-1 xl:basis-auto">
-        <select
-          aria-label="Callback URL scheme"
-          className="scheme-select"
-          value={scheme}
-          onChange={(e) => setScheme(e.target.value as "http" | "https")}
-        >
-          <option value="https">HTTPS</option>
-          <option value="http">HTTP</option>
-        </select>
-        <Input
-          aria-label="Callback domain"
-          value={fullDomain}
-          isReadOnly
-          isDisabled={!session}
-          size="sm"
-          variant="flat"
-          radius="lg"
-          className="min-w-0 flex-1 cursor-pointer md:w-48 md:flex-none"
-          classNames={{
-            input: "text-sm font-mono cursor-pointer",
-            inputWrapper: "bg-default-100 shadow-none cursor-pointer",
-          }}
-          onClick={() => {
-            copyToClipboard(fullDomain);
-            toast.success("Domain copied to clipboard");
-          }}
-        />
-        <Button
-          color="success"
-          variant="flat"
-          size="sm"
-          radius="lg"
-          isIconOnly
-          className="md:hidden"
-          isDisabled={!session}
-          aria-label="Copy callback URL"
-          onPress={handleCopyUrl}
-        >
-          <Copy className="h-4 w-4" />
-        </Button>
-        <Button
-          color="success"
-          variant="flat"
-          size="sm"
-          radius="lg"
-          startContent={<Copy className="h-4 w-4" />}
-          isDisabled={!session}
-          aria-label="Copy callback URL"
-          onPress={handleCopyUrl}
-          className="hidden md:flex"
-        >
-          Copy URL
-        </Button>
-        <Button
-          color="primary"
-          size="sm"
-          radius="lg"
-          isIconOnly
-          className="md:hidden"
-          isDisabled={!session}
-          aria-label="New callback URL"
-          onPress={handleNewUrl}
-        >
-          <Shuffle className="h-4 w-4" />
-        </Button>
-        <Button
-          color="primary"
-          size="sm"
-          radius="lg"
-          startContent={<Shuffle className="h-4 w-4" />}
-          isDisabled={!session}
-          aria-label="New callback URL"
-          onPress={handleNewUrl}
-          className="hidden md:flex"
-        >
-          New URL
-        </Button>
+      <div className="flex min-w-0 basis-full items-center justify-end gap-1 pb-2 xl:basis-auto xl:flex-1 xl:pb-0">
+        <div className="url-group min-w-0 flex-1 xl:flex-none">
+          <select
+            aria-label="Callback URL scheme"
+            value={scheme}
+            onChange={(e) => setScheme(e.target.value as "http" | "https")}
+          >
+            <option value="https">https://</option>
+            <option value="http">http://</option>
+          </select>
+          <input
+            aria-label="Callback domain"
+            value={fullDomain}
+            readOnly
+            disabled={!session}
+            title="Click to copy the bare domain"
+            onClick={() => {
+              copyToClipboard(fullDomain);
+              toast.success("Domain copied");
+            }}
+          />
+          <button
+            type="button"
+            className="copy"
+            disabled={!session}
+            aria-label="Copy callback URL"
+            onClick={handleCopyUrl}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Copy</span>
+          </button>
+        </div>
+        <Tooltip content="Swap this session for a fresh subdomain">
+          <button
+            type="button"
+            className="text-btn shrink-0"
+            disabled={!session}
+            aria-label="New callback URL"
+            onClick={handleNewUrl}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">New URL</span>
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

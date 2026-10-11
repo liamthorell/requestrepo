@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button, Checkbox, ScrollShadow } from "@heroui/react";
+import { Tooltip } from "@heroui/react";
 import {
   X,
   CheckCheck,
@@ -8,7 +8,7 @@ import {
   Pause,
   Play,
   Download,
-  Inbox,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -23,6 +23,7 @@ import { useLabStore } from "@/stores/labStore";
 import { visibleRequests, downloadEvidence } from "@/lib/lab";
 import { cn, formatRelativeTime, getFlagClass } from "@/lib/utils";
 import type { Request } from "@/types";
+import { KebabMark } from "./KebabMark";
 import { isHttpRequest, isSmtpRequest } from "@/types";
 
 interface SidebarProps {
@@ -208,286 +209,243 @@ export function Sidebar({ onClose }: SidebarProps) {
     }
   };
 
+  // Tickets are numbered by arrival across the whole session, so a number
+  // stays put when filters hide its neighbours.
+  const ticketNumbers = useMemo(() => {
+    const numbers = new Map<string, number>();
+    [...requests]
+      .sort((a, b) => a.date - b.date)
+      .forEach((r, i) => numbers.set(r._id, i + 1));
+    return numbers;
+  }, [requests]);
+  const typeCounts = useMemo(() => {
+    const counts = { http: 0, dns: 0, smtp: 0 };
+    for (const r of requests) counts[r.type] += 1;
+    return counts;
+  }, [requests]);
+  const unreadCount = requests.filter(
+    (r) => !visitedRequests[activeSubdomain ?? ""]?.[r._id],
+  ).length;
+  const typeFilters = [
+    { key: "http", label: "HTTP", on: httpFilter },
+    { key: "dns", label: "DNS", on: dnsFilter },
+    { key: "smtp", label: "SMTP", on: smtpFilter },
+  ] as const;
+  const toggleType = (key: "http" | "dns" | "smtp") =>
+    setFilters(
+      key === "http" ? !httpFilter : httpFilter,
+      key === "dns" ? !dnsFilter : dnsFilter,
+      key === "smtp" ? !smtpFilter : smtpFilter,
+    );
+
   return (
     <div className="flex h-full flex-col">
-      {/* Mobile header with close button */}
-      {onClose && (
-        <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-default-200 px-3">
-          <span className="text-sm font-semibold">Requests</span>
-          <Button
-            isIconOnly
-            variant="light"
-            size="sm"
-            radius="full"
-            onPress={onClose}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-      )}
-
-      <div className="queue-heading">
-        <span className="eyebrow">THE GRILL QUEUE</span>
-        <div className="flex items-center justify-between">
-          <h2>Incoming signals</h2>
-          <span className="queue-count">{requests.length}</span>
-        </div>
-      </div>
-      {/* Requests header + filters */}
-      <div className="mb-3 px-3">
-        <p className="mb-2 text-sm font-medium text-default-500">
-          {filteredRequests.length} shown ·{" "}
-          {
-            requests.filter(
-              (r) => !visitedRequests[activeSubdomain ?? ""]?.[r._id],
-            ).length
-          }{" "}
-          unread
-        </p>
-        <div className="flex items-center gap-3">
-          <Checkbox
-            isSelected={httpFilter}
-            onValueChange={(checked) =>
-              setFilters(checked, dnsFilter, smtpFilter)
-            }
-            size="sm"
-            radius="full"
-          >
-            <span className="text-sm">HTTP</span>
-          </Checkbox>
-          <Checkbox
-            isSelected={dnsFilter}
-            onValueChange={(checked) =>
-              setFilters(httpFilter, checked, smtpFilter)
-            }
-            size="sm"
-            radius="full"
-          >
-            <span className="text-sm">DNS</span>
-          </Checkbox>
-          <Checkbox
-            isSelected={smtpFilter}
-            onValueChange={(checked) =>
-              setFilters(httpFilter, dnsFilter, checked)
-            }
-            size="sm"
-            radius="full"
-          >
-            <span className="text-sm">SMTP</span>
-          </Checkbox>
-        </div>
-      </div>
-
-      <div className="flex gap-2 px-3 pb-3">
-        <Button
-          size="sm"
-          className="flex-1"
-          variant="flat"
-          color={onlyBookmarks ? "primary" : "default"}
-          aria-pressed={onlyBookmarks}
-          startContent={<Bookmark size={13} />}
-          onPress={toggleOnlyBookmarks}
-        >
-          {onlyBookmarks ? "Bookmarked" : "Bookmarks"}
-        </Button>
-        <Button
-          size="sm"
-          variant="flat"
-          aria-pressed={!followRequests}
-          aria-label={
-            followRequests ? "Pause auto-scroll" : "Resume auto-scroll"
-          }
-          startContent={
-            followRequests ? <Pause size={13} /> : <Play size={13} />
-          }
-          onPress={toggleFollow}
-        >
-          {followRequests ? "Pause" : "Follow"}
-        </Button>
-      </div>
-      {/* Request list */}
-      <ScrollShadow
-        ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-2"
-      >
-        <div className="flex flex-col gap-1">
-          {filteredRequests.length === 0 && (
-            <div className="queue-empty">
-              <Inbox size={25} />
-              <strong>
-                {requests.length
-                  ? "No matching signals"
-                  : "Nothing on the grill yet"}
-              </strong>
-              <span>
-                {requests.length
-                  ? "Try changing your filters or search."
-                  : "Send a callback to your session URL."}
+      <div className="queue-head">
+        <h2>Requests</h2>
+        <div className="flex items-center gap-1">
+          <span className="queue-stats">
+            {filteredRequests.length !== requests.length &&
+              `${filteredRequests.length}/`}
+            {requests.length}
+            {unreadCount > 0 && (
+              <span className="text-[var(--lab-accent-ink)]">
+                {" "}
+                · {unreadCount} new
               </span>
-            </div>
+            )}
+          </span>
+          {onClose && (
+            <button
+              type="button"
+              className="icon-btn -mr-2 ml-1"
+              aria-label="Close request queue"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </button>
           )}
-          {filteredRequests.map((request, index) => {
-            const isActive = request._id === selectedRequestId;
-            const isVisited = activeSubdomain
-              ? (visitedRequests[activeSubdomain]?.[request._id] ?? false)
-              : false;
-            const isHttp = isHttpRequest(request);
-            const isSmtp = isSmtpRequest(request);
-            const isFirst = index === 0;
-            const isLast = index === filteredRequests.length - 1;
-
-            // Determine badge color
-            const getBadgeColor = () => {
-              if (isSmtp) return "bg-[#b33b72]"; // Pink for SMTP
-              if (!isHttp) return "bg-[#087f9c]"; // Cyan for DNS
-              // HTTP methods
-              switch (request.method) {
-                case "GET":
-                  return "bg-[#24764e]";
-                case "POST":
-                  return "bg-[#a36010]";
-                case "PUT":
-                  return "bg-[#ab5e27]";
-                case "DELETE":
-                  return "bg-[#f44336]";
-                default:
-                  return "bg-[#9e9e9e]";
-              }
-            };
-
-            // Determine badge text
-            const getBadgeText = () => {
-              if (isHttp) return request.method;
-              if (isSmtp) return "SMTP";
-              return "DNS";
-            };
-
-            // Determine display text
-            const getDisplayText = () => {
-              if (isHttp) {
-                return `${request.path}${request.query ?? ""}${request.fragment ? `#${request.fragment}` : ""}`;
-              }
-              if (isSmtp) {
-                // Use structured data from backend
-                const subject = request.subject;
-                const from = request.from;
-                if (subject) {
-                  if (from) {
-                    // Extract just the name/email without angle brackets
-                    const fromDisplay = from
-                      .replace(/<[^>]+>/g, "")
-                      .trim()
-                      .replace(/^"([^"]+)"$/, "$1");
-                    return `${subject} - ${fromDisplay}`;
-                  }
-                  return subject;
-                }
-                return "Email";
-              }
-              return request.domain;
-            };
-
-            return (
-              <div
-                key={request._id}
-                data-request-id={request._id}
-                ref={(el) => {
-                  if (el) requestRefs.current.set(request._id, el);
-                  else requestRefs.current.delete(request._id);
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label={`Select ${getBadgeText()} request ${getDisplayText()}`}
-                aria-pressed={isActive}
-                onKeyDown={(e) => {
-                  if (
-                    e.target === e.currentTarget &&
-                    (e.key === "Enter" || e.key === " ")
-                  ) {
-                    e.preventDefault();
-                    handleSelectRequest(request);
-                  }
-                }}
-                onClick={() => handleSelectRequest(request)}
-                className={cn(
-                  "queue-item group cursor-pointer px-3 py-3 transition-colors hover:bg-default-200 dark:hover:bg-default-100",
-                  isFirst && "rounded-t-md",
-                  isLast && "rounded-b-md",
-                  isActive && "bg-primary/10",
-                  isVisited && !isActive && "bg-default-100 dark:bg-black/20",
-                )}
-              >
-                <div className="flex items-center gap-1.5">
-                  {bookmarks[activeSubdomain ?? ""]?.[request._id] && (
-                    <Bookmark
-                      size={12}
-                      className="shrink-0 text-primary"
-                      fill="currentColor"
-                    />
-                  )}
-                  {!isVisited && (
-                    <span className="shrink-0 inline-block px-1 py-px text-[10px] font-semibold text-white bg-red-500 rounded">
-                      NEW
-                    </span>
-                  )}
-                  <span
-                    className={`shrink-0 inline-block px-1 py-px text-[10px] font-semibold text-white rounded ${getBadgeColor()}`}
-                  >
-                    {getBadgeText()}
-                  </span>
-                  <span
-                    className={cn(
-                      "truncate text-sm",
-                      !isVisited && "font-medium",
-                    )}
-                  >
-                    {getDisplayText()}
-                  </span>
-                  <button
-                    aria-label="Delete request"
-                    className="ml-auto shrink-0 rounded p-1 text-default-400 hover:text-danger focus:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                    onClick={(e) => handleDeleteRequest(e, request._id)}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-                <div className="mt-1.5 flex items-center gap-1 text-xs text-default-400">
-                  <span className={getFlagClass(request.country)} />
-                  <span className="truncate">{request.ip}</span>
-                  <span className="ml-auto shrink-0">
-                    {formatRelativeTime(request.date)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-          {/* Scroll anchor for auto-scroll to bottom */}
-          <div ref={bottomRef} />
         </div>
-      </ScrollShadow>
+      </div>
 
-      {/* Mark all as read */}
-      <div className="queue-footer shrink-0 space-y-2 p-3">
-        <Button
-          color="default"
-          variant="flat"
-          size="sm"
-          className="w-full"
-          startContent={<CheckCheck className="h-4 w-4" />}
-          onPress={handleMarkAllRead}
-          isDisabled={requests.length === 0 || allRead}
-          radius="lg"
+      <div className="queue-filters">
+        {typeFilters.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            className="type-toggle"
+            aria-pressed={f.on}
+            title={`${f.on ? "Hide" : "Show"} ${f.label}`}
+            onClick={() => toggleType(f.key)}
+          >
+            {f.label}
+            <span className="n">{typeCounts[f.key]}</span>
+          </button>
+        ))}
+        <span className="flex-1" />
+        <Tooltip
+          content={onlyBookmarks ? "Show everything" : "Only bookmarked"}
         >
-          Mark all as read
-        </Button>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            className="flex-1"
-            variant="bordered"
-            startContent={<Download size={13} />}
-            isDisabled={!activeSubdomain || filteredRequests.length === 0}
-            onPress={() => {
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={onlyBookmarks ? "Bookmarked" : "Bookmarks"}
+            aria-pressed={onlyBookmarks}
+            style={onlyBookmarks ? { color: "var(--lab-accent-ink)" } : {}}
+            onClick={toggleOnlyBookmarks}
+          >
+            <Bookmark
+              size={15}
+              fill={onlyBookmarks ? "currentColor" : "none"}
+            />
+          </button>
+        </Tooltip>
+        <Tooltip
+          content={
+            followRequests
+              ? "Stop jumping to new requests (P)"
+              : "Jump to new requests (P)"
+          }
+        >
+          <button
+            type="button"
+            className="icon-btn"
+            aria-pressed={!followRequests}
+            aria-label={
+              followRequests ? "Pause auto-scroll" : "Resume auto-scroll"
+            }
+            style={!followRequests ? { color: "var(--lab-accent-ink)" } : {}}
+            onClick={toggleFollow}
+          >
+            {followRequests ? <Pause size={15} /> : <Play size={15} />}
+          </button>
+        </Tooltip>
+      </div>
+
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+        {filteredRequests.length === 0 && (
+          <div className="queue-empty">
+            <KebabMark />
+            <strong>
+              {requests.length ? "Nothing matches" : "Nothing yet"}
+            </strong>
+            <span>
+              {requests.length
+                ? "Loosen the filters or clear the search."
+                : "Send something to the URL above."}
+            </span>
+          </div>
+        )}
+        {filteredRequests.map((request) => {
+          const isActive = request._id === selectedRequestId;
+          const isVisited = activeSubdomain
+            ? (visitedRequests[activeSubdomain]?.[request._id] ?? false)
+            : false;
+          const isHttp = isHttpRequest(request);
+          const isSmtp = isSmtpRequest(request);
+          const badge = isHttp ? request.method : isSmtp ? "SMTP" : "DNS";
+          const methodClass = `m-${badge.toLowerCase()}`;
+
+          const getDisplayText = () => {
+            if (isHttp) {
+              return `${request.path}${request.query ?? ""}${request.fragment ? `#${request.fragment}` : ""}`;
+            }
+            if (isSmtp) {
+              const subject = request.subject;
+              const from = request.from;
+              if (subject) {
+                if (from) {
+                  const fromDisplay = from
+                    .replace(/<[^>]+>/g, "")
+                    .trim()
+                    .replace(/^"([^"]+)"$/, "$1");
+                  return `${subject} - ${fromDisplay}`;
+                }
+                return subject;
+              }
+              return "Email";
+            }
+            return request.domain;
+          };
+          const ticket = ticketNumbers.get(request._id) ?? 0;
+
+          return (
+            <div
+              key={request._id}
+              data-request-id={request._id}
+              ref={(el) => {
+                if (el) requestRefs.current.set(request._id, el);
+                else requestRefs.current.delete(request._id);
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select ${badge} request ${getDisplayText()}`}
+              aria-pressed={isActive}
+              onKeyDown={(e) => {
+                if (
+                  e.target === e.currentTarget &&
+                  (e.key === "Enter" || e.key === " ")
+                ) {
+                  e.preventDefault();
+                  handleSelectRequest(request);
+                }
+              }}
+              onClick={() => handleSelectRequest(request)}
+              className={cn("queue-item group", !isVisited && "is-unread")}
+            >
+              <div className="qi-row">
+                <span
+                  className="qi-num"
+                  title={isVisited ? undefined : "Not opened yet"}
+                >
+                  {String(ticket).padStart(3, "0")}
+                </span>
+                <span className={cn("method", methodClass)}>{badge}</span>
+                <span className="qi-path">{getDisplayText()}</span>
+                {bookmarks[activeSubdomain ?? ""]?.[request._id] && (
+                  <Bookmark
+                    size={12}
+                    className="shrink-0 text-[var(--lab-accent-ink)]"
+                    fill="currentColor"
+                  />
+                )}
+                <button
+                  aria-label="Delete request"
+                  className="-my-1 ml-auto shrink-0 rounded p-1 text-[var(--lab-faint)] hover:text-[var(--lab-accent-ink)] focus:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                  onClick={(e) => handleDeleteRequest(e, request._id)}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              <div className="qi-meta">
+                <span className={getFlagClass(request.country)} />
+                <span className="truncate font-mono">{request.ip}</span>
+                <span className="ml-auto shrink-0">
+                  {formatRelativeTime(request.date)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="queue-footer shrink-0">
+        <div className="flex items-center">
+          <button
+            type="button"
+            className="text-btn"
+            onClick={handleMarkAllRead}
+            disabled={requests.length === 0 || allRead}
+          >
+            <CheckCheck size={14} />
+            Mark read
+          </button>
+          <button
+            type="button"
+            className="text-btn"
+            disabled={!activeSubdomain || filteredRequests.length === 0}
+            title="Download the requests currently listed, with notes, as JSON"
+            onClick={() => {
               if (activeSubdomain)
                 downloadEvidence(
                   activeSubdomain,
@@ -497,24 +455,21 @@ export function Sidebar({ onClose }: SidebarProps) {
                 );
             }}
           >
-            Export shown
-          </Button>
-          <Button
-            size="sm"
-            isIconOnly
+            <Download size={14} />
+            Export
+          </button>
+          <button
+            type="button"
+            className="text-btn ml-auto hover:!text-[var(--m-delete)]"
             aria-label="Delete all requests"
             title="Delete all requests"
-            variant="light"
-            color="danger"
-            isDisabled={requests.length === 0}
-            onPress={handleDeleteAll}
+            disabled={requests.length === 0}
+            onClick={handleDeleteAll}
           >
-            <X size={16} />
-          </Button>
+            <Trash2 size={14} />
+          </button>
         </div>
-        <p className="text-center text-[10px] text-default-500">
-          Bookmarks & notes saved in this browser
-        </p>
+        <p>Bookmarks and notes stay in this browser.</p>
       </div>
     </div>
   );

@@ -1,22 +1,22 @@
 import type { ResponseHeader } from "@/types";
 
 export const RESPONSE_PRESETS = [
-  { key: "html", name: "HTML page", detail: "A simple page to edit and serve" },
-  { key: "json", name: "JSON reply", detail: "A small API-style response" },
+  { key: "html", name: "HTML page", detail: "text/html" },
+  { key: "json", name: "JSON reply", detail: "application/json" },
   {
     key: "cors",
     name: "CORS-enabled JSON",
-    detail: "Allow cross-origin browser callbacks",
+    detail: "JSON + Access-Control-Allow-*",
   },
   {
     key: "redirect",
     name: "302 redirect",
-    detail: "Send the client to an HTTP(S) URL",
+    detail: "Location: …",
   },
   {
     key: "empty",
     name: "204 no content",
-    detail: "A quiet, body-free callback",
+    detail: "empty body",
   },
 ] as const;
 export type PresetKey = (typeof RESPONSE_PRESETS)[number]["key"];

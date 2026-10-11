@@ -1,15 +1,6 @@
 import { useState } from "react";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Input,
-  Button,
-} from "@heroui/react";
 import { KebabMark } from "@/components/layout/KebabMark";
-import { Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 
 interface AdminAuthOverlayProps {
@@ -46,75 +37,70 @@ export function AdminAuthOverlay({ onSubmit }: AdminAuthOverlayProps) {
   };
 
   return (
-    <Modal
-      isOpen={true}
-      hideCloseButton
-      isDismissable={false}
-      backdrop="blur"
-      classNames={{
-        backdrop: "bg-black/80",
-      }}
+    <div
+      className="signin"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="signin-title"
     >
-      <ModalContent>
-        <form onSubmit={handleSubmit}>
-          <ModalHeader className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <KebabMark className="h-10 w-10 text-primary" />
-              <div>
-                <span className="eyebrow">KEBABENGINEERS</span>
-                <h1 className="text-xl font-semibold">Welcome to the grill</h1>
-              </div>
-            </div>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-default-500 mb-4">
-              Enter the team password to start catching callbacks.
-            </p>
+      <form onSubmit={handleSubmit}>
+        <div className="wordmark" id="signin-title">
+          <KebabMark className="h-11 w-11" />
+          <span className="flex items-baseline">
+            <b>KebabEngineers</b>
+            <i>/req</i>
+          </span>
+        </div>
+        <p>
+          Catches HTTP, DNS and SMTP callbacks. Sign in with the shared team
+          password.
+        </p>
 
-            <Input
-              type={showPassword ? "text" : "password"}
-              label="Admin Password"
-              placeholder="Enter admin password"
-              value={password}
-              onValueChange={handlePasswordChange}
-              autoFocus
-              isInvalid={!!authError}
-              startContent={<Lock className="h-4 w-4 text-default-400" />}
-              endContent={
-                <button
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="focus:outline-none"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-default-400 hover:text-default-600" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-default-400 hover:text-default-600" />
-                  )}
-                </button>
-              }
-            />
-
-            {authError && (
-              <div className="flex items-center gap-2 text-danger text-sm mt-2">
-                <AlertCircle className="h-4 w-4" />
-                <span>{authError}</span>
-              </div>
+        <label htmlFor="admin-password">Password</label>
+        <div className="pw" data-invalid={!!authError}>
+          <input
+            id="admin-password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => handlePasswordChange(e.target.value)}
+            autoComplete="current-password"
+            autoFocus
+            aria-invalid={!!authError}
+          />
+          <button
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
             )}
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              type="submit"
-              color="primary"
-              isLoading={isSubmitting}
-              isDisabled={!password.trim()}
-            >
-              Fire up a session
-            </Button>
-          </ModalFooter>
-        </form>
-      </ModalContent>
-    </Modal>
+          </button>
+        </div>
+        {authError && <div className="err">{authError}</div>}
+
+        <button
+          type="submit"
+          className="submit"
+          disabled={!password.trim() || isSubmitting}
+        >
+          {isSubmitting ? "Checking…" : "Open a session"}
+        </button>
+        <small>
+          Built on{" "}
+          <a
+            className="underline underline-offset-2"
+            href="https://github.com/adrgs/requestrepo"
+            target="_blank"
+            rel="noreferrer"
+          >
+            requestrepo
+          </a>
+          .
+        </small>
+      </form>
+    </div>
   );
 }

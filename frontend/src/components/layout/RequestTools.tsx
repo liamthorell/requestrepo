@@ -1,4 +1,4 @@
-import { Button, Input } from "@heroui/react";
+import { Input } from "@heroui/react";
 import { Bookmark, Download } from "lucide-react";
 import { useRequestStore } from "@/stores/requestStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -21,32 +21,31 @@ export function RequestTools() {
   const saved = !!bookmarks[subdomain]?.[request._id];
   return (
     <div className="request-tools">
-      <Button
-        size="sm"
-        variant="flat"
-        color={saved ? "primary" : "default"}
-        startContent={
-          <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
-        }
-        onPress={() => toggleBookmark(subdomain, request._id)}
+      <button
+        type="button"
+        className="text-btn"
+        aria-pressed={saved}
+        onClick={() => toggleBookmark(subdomain, request._id)}
       >
+        <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
         {saved ? "Bookmarked" : "Bookmark"}
-      </Button>
+      </button>
       <Input
         aria-label="Evidence note"
-        placeholder="Add a note for your write-up…"
+        placeholder="Note for the write-up"
         maxLength={4000}
         size="sm"
+        variant="bordered"
         value={notes[subdomain]?.[request._id] ?? ""}
         onValueChange={(note) => setNote(subdomain, request._id, note)}
         className="min-w-0 flex-1"
+        classNames={{ inputWrapper: "bg-[var(--lab-surface)]" }}
       />
-      <Button
+      <button
+        type="button"
+        className="text-btn"
         aria-label="Export selected request"
-        size="sm"
-        variant="bordered"
-        startContent={<Download size={15} />}
-        onPress={() =>
+        onClick={() =>
           downloadEvidence(
             subdomain,
             [request],
@@ -55,8 +54,9 @@ export function RequestTools() {
           )
         }
       >
+        <Download size={14} />
         Export
-      </Button>
+      </button>
     </div>
   );
 }

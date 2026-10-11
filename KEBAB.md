@@ -1,4 +1,4 @@
-# KebabEngineers Request Lab
+# KebabEngineers /req
 
 Liam's frontend fork of [adrgs/requestrepo](https://github.com/adrgs/requestrepo),
 served at **https://req.havet.dev**. The `kebab-lab` branch starts from upstream
@@ -6,8 +6,13 @@ served at **https://req.havet.dev**. The `kebab-lab` branch starts from upstream
 
 ## What changed
 
-- Charcoal/amber and cream themes, original skewer artwork, a branded sign-in,
-  and a callback cookbook with copy buttons for HTTP, POST, DNS, JS, HTML, SMTP.
+- Kebab-shop look: charred-grill dark and wrapping-paper light themes with one
+  chili-red accent, a döner-spit mark, Archivo (condensed for the wordmark) and
+  IBM Plex Mono, both self-hosted. Requests are numbered like order slips and
+  coloured by method/type. Tokens live in `src/index.css` (`--lab-*`, `--m-*`)
+  and `tailwind.config.ts`; the Monaco themes are defined in `src/main.tsx`.
+- A plain sign-in page, and a landing view with the session URL and a table of
+  copyable snippets for HTTP, POST, DNS, fetch(), <img> and SMTP.
 - HTTP/HTTPS choice for copied URLs and snippets. HTTPS is the default; this
   affects generated URLs only, not the server's listening ports.
 - Request bookmarks, a bookmarks-only filter, and per-request evidence notes.

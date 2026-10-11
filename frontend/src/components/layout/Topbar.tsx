@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, Button, Tooltip } from "@heroui/react";
+import { Tooltip } from "@heroui/react";
 import { Plus, Share2, Search, X, Menu } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "./ThemeToggle";
@@ -13,6 +13,7 @@ import { KebabMark } from "./KebabMark";
 import { SessionNaming } from "./SessionNaming";
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
 import { useLabStore } from "@/stores/labStore";
+import { getBaseDomain } from "@/lib/config";
 
 const MAX_SESSIONS = 5;
 
@@ -87,70 +88,92 @@ export function Topbar() {
     toast.success(`Session ${subdomain} closed`);
   };
 
+  const searchField = (mobile: boolean) => (
+    <label
+      className={mobile ? "search-box w-full" : "search-box hidden md:flex"}
+    >
+      <Search className="h-3.5 w-3.5 shrink-0" />
+      <input
+        aria-label={mobile ? "Search requests on mobile" : "Search requests"}
+        placeholder="Search headers, bodies, IPs"
+        value={searchQuery}
+        autoFocus={mobile}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setSearchQuery("");
+            if (mobile) setSearchVisible(false);
+            event.currentTarget.blur();
+          }
+        }}
+      />
+      {!mobile && !searchQuery && <kbd className="key">/</kbd>}
+      {searchQuery && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => setSearchQuery("")}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </label>
+  );
+
   return (
-    <div className="lab-topbar flex h-16 items-center justify-between px-3 md:px-5">
-      {/* Left: Hamburger + Logo + Star + Badge */}
-      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
-        {/* Hamburger menu - mobile only */}
-        <Button
-          isIconOnly
-          variant="light"
-          size="sm"
-          radius="full"
+    <div className="lab-topbar relative flex h-12 items-center justify-between gap-3 pl-2 pr-3 md:pl-4">
+      <div className="flex min-w-0 flex-1 items-center gap-1 md:gap-3">
+        <button
+          type="button"
           aria-label="Open request queue"
-          onPress={toggleSidebar}
-          className="shrink-0 lg:hidden"
+          onClick={toggleSidebar}
+          className="icon-btn shrink-0 lg:hidden"
         >
           <Menu className="h-5 w-5" />
-        </Button>
+        </button>
 
         <a
           href="/"
-          className="lab-brand flex shrink-0 items-center gap-2"
-          aria-label="KebabEngineers Request Lab home"
+          className="wordmark shrink-0 pr-1 md:pr-3"
+          aria-label="KebabEngineers requests home"
         >
-          <KebabMark className="h-10 w-10 text-primary" />
-          <div className="hidden sm:block">
-            <strong>KebabEngineers</strong>
-            <span>REQUEST LAB</span>
-          </div>
+          <KebabMark className="h-7 w-7" />
+          <span className="hidden sm:flex sm:items-baseline">
+            <b>KebabEngineers</b>
+            <i>/req</i>
+          </span>
         </a>
-        {/* Session Tabs - scrollable on mobile */}
+
         {sessions.length > 0 && (
-          <div className="ml-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto md:ml-2">
+          <div className="flex min-w-0 flex-1 items-center overflow-x-auto md:border-l md:border-[var(--lab-line)] md:pl-2">
             {sessions.map((session) => {
               const unreadCount = getUnreadCount(session.subdomain);
+              const name =
+                sessionLabels[session.subdomain] || session.subdomain;
+              const active = session.subdomain === activeSubdomain;
               return (
                 <div
                   key={session.subdomain}
-                  className={`group flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors md:px-3 md:text-sm ${
-                    session.subdomain === activeSubdomain
-                      ? "bg-primary/10 text-primary"
-                      : "bg-default-100 text-default-600 hover:bg-default-200"
-                  }`}
+                  className="session-tab group shrink-0"
+                  data-active={active}
                 >
                   <button
                     type="button"
-                    className="flex min-w-0 items-center gap-1.5"
-                    aria-label={`Switch to session ${sessionLabels[session.subdomain] || session.subdomain}`}
-                    aria-current={
-                      session.subdomain === activeSubdomain ? "true" : undefined
-                    }
-                    title={session.subdomain}
+                    className="flex min-w-0 items-center gap-2"
+                    aria-label={`Switch to session ${name}`}
+                    aria-current={active ? "true" : undefined}
+                    title={`${session.subdomain}.${getBaseDomain()}`}
                     onClick={() => setActiveSession(session.subdomain)}
                   >
+                    <span className="max-w-40 truncate">{name}</span>
                     {unreadCount > 0 && (
-                      <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                        {unreadCount}
-                      </span>
+                      <span className="tab-unread">{unreadCount}</span>
                     )}
-                    <span className="max-w-40 truncate">
-                      {sessionLabels[session.subdomain] || session.subdomain}
-                    </span>
                   </button>
                   <button
-                    aria-label={`Close session ${sessionLabels[session.subdomain] || session.subdomain}`}
-                    className="ml-1 rounded p-1 opacity-70 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
+                    type="button"
+                    aria-label={`Close session ${name}`}
+                    className="tab-close opacity-70 group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                     onClick={(e) => handleCloseSession(e, session.subdomain)}
                   >
                     <X className="h-3 w-3" />
@@ -158,116 +181,48 @@ export function Topbar() {
                 </div>
               );
             })}
+            <Tooltip content="New session">
+              <button
+                type="button"
+                className="icon-btn ml-1 shrink-0"
+                aria-label="New session"
+                onClick={handleCreateSession}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>
 
-      {/* Right: Icons + Search */}
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-0.5">
         <SessionNaming />
-        <KeyboardShortcuts />
-        <Tooltip content="New session">
-          <Button
-            isIconOnly
-            variant="light"
-            size="sm"
-            radius="full"
-            aria-label="New session"
-            onPress={handleCreateSession}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </Tooltip>
-
-        <Tooltip content="Share session">
-          <Button
-            isIconOnly
-            variant="light"
-            size="sm"
-            radius="full"
+        <Tooltip content="Copy share link">
+          <button
+            type="button"
+            className="icon-btn hidden md:inline-grid"
             aria-label="Share session"
-            onPress={handleShare}
-            className="hidden md:flex"
+            onClick={handleShare}
           >
             <Share2 className="h-4 w-4" />
-          </Button>
+          </button>
         </Tooltip>
-
+        <KeyboardShortcuts />
         <ThemeToggle />
-
-        {/* Mobile search toggle */}
-        <Button
-          isIconOnly
-          variant="light"
-          size="sm"
-          radius="full"
+        <button
+          type="button"
           aria-label="Toggle search"
-          onPress={() => setSearchVisible(!searchVisible)}
-          className="md:hidden"
+          onClick={() => setSearchVisible(!searchVisible)}
+          className="icon-btn md:hidden"
         >
           <Search className="h-4 w-4" />
-        </Button>
-
-        {/* Desktop search - always visible */}
-        <Input
-          aria-label="Search requests"
-          placeholder="Search requests…"
-          size="sm"
-          variant="flat"
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              setSearchQuery("");
-              event.currentTarget.blur();
-            }
-          }}
-          startContent={<Search className="h-4 w-4 text-default-400" />}
-          className="ml-2 hidden w-44 md:block"
-          radius="full"
-          classNames={{
-            input: "text-sm",
-            inputWrapper: "bg-default-100 shadow-none",
-          }}
-        />
+        </button>
+        <div className="ml-2">{searchField(false)}</div>
       </div>
 
-      {/* Mobile search bar - expandable */}
       {searchVisible && (
-        <div className="absolute left-0 right-0 top-16 z-50 bg-white p-2 shadow-md dark:bg-zinc-800 md:hidden">
-          <Input
-            aria-label="Search requests on mobile"
-            placeholder="Search requests…"
-            size="sm"
-            variant="flat"
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setSearchQuery("");
-                setSearchVisible(false);
-              }
-            }}
-            startContent={<Search className="h-4 w-4 text-default-400" />}
-            endContent={
-              <Button
-                isIconOnly
-                variant="light"
-                size="sm"
-                radius="full"
-                onPress={() => setSearchVisible(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            }
-            className="w-full"
-            radius="full"
-            classNames={{
-              input: "text-sm",
-              inputWrapper: "bg-default-100 shadow-none",
-            }}
-            autoFocus
-          />
+        <div className="absolute left-0 right-0 top-12 z-50 border-b border-[var(--lab-line)] bg-[var(--lab-bg)] p-2 md:hidden">
+          {searchField(true)}
         </div>
       )}
     </div>

@@ -26,13 +26,12 @@ export function AppLayout() {
 
   return (
     <div className="lab-shell h-dvh w-full overflow-hidden">
-      {/* Fixed Topbar - 50px height */}
-      <header className="fixed left-0 right-0 top-0 z-50 h-16">
+      <header className="fixed left-0 right-0 top-0 z-50 h-12">
         <Topbar />
       </header>
 
       {/* Desktop Sidebar - hidden on mobile */}
-      <aside className="fixed bottom-0 left-0 top-16 z-40 hidden lab-sidebar w-[300px] lg:block">
+      <aside className="fixed bottom-0 left-0 top-12 z-40 hidden lab-sidebar w-[320px] lg:block">
         <Sidebar />
       </aside>
 
@@ -41,25 +40,25 @@ export function AppLayout() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
             onClick={handleCloseSidebar}
           />
           {/* Sidebar */}
-          <aside className="fixed bottom-0 left-0 top-0 z-50 lab-sidebar w-[300px] lg:hidden">
+          <aside className="fixed bottom-0 left-0 top-0 z-50 lab-sidebar w-[min(320px,88vw)] lg:hidden">
             <Sidebar onClose={handleCloseSidebar} />
           </aside>
         </>
       )}
 
       {/* Main Content - offset by topbar and sidebar (sidebar margin only on lg+) */}
-      <main className="mt-16 flex h-[calc(100dvh-64px)] flex-col overflow-hidden lg:ml-[300px]">
+      <main className="mt-12 flex h-[calc(100dvh-48px)] flex-col overflow-hidden lg:ml-[320px]">
         {/* Toolbar row */}
         <div className="shrink-0">
           <Toolbar />
         </div>
 
         {/* Content area */}
-        <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+        <div className="min-h-0 flex-1 overflow-auto p-3 md:p-5">
           {location.pathname.startsWith("/requests") && <RequestTools />}
           <Outlet />
         </div>

@@ -11,7 +11,7 @@ export function useDocumentTitle() {
   useEffect(() => {
     // Use dynamic hostname (e.g., "requestrepo.com" or "localhost:5173")
     const domain = window.location.host;
-    const baseTitle = `KebabEngineers Request Lab · ${domain}`;
+    const baseTitle = `${domain} · KebabEngineers`;
 
     // Count unseen requests across all sessions
     let totalUnseen = 0;

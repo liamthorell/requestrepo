@@ -9,11 +9,61 @@ import * as Sentry from "@sentry/react";
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import App from "./App";
+import "@fontsource-variable/archivo/wdth.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
 import "./index.css";
 import "flag-icons/css/flag-icons.min.css";
 
 // Use locally bundled Monaco instead of CDN (jsdelivr is blocked in some regions)
 loader.config({ monaco });
+
+// Editor colours follow the app palette (index.css).
+monaco.editor.defineTheme("kebab-dark", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "6b6058" },
+    { token: "string", foreground: "95c286" },
+    { token: "keyword", foreground: "f07457" },
+    { token: "number", foreground: "e3b350" },
+    { token: "tag", foreground: "f07457" },
+    { token: "attribute.name", foreground: "e3b350" },
+  ],
+  colors: {
+    "editor.background": "#1a1614",
+    "editor.foreground": "#ede5d9",
+    "editorLineNumber.foreground": "#4d433c",
+    "editorLineNumber.activeForeground": "#9a8d80",
+    "editor.lineHighlightBackground": "#221d1a",
+    "editor.lineHighlightBorder": "#00000000",
+    "editor.selectionBackground": "#e04a2c40",
+    "editorCursor.foreground": "#e04a2c",
+    "editorIndentGuide.background1": "#2f2824",
+  },
+});
+monaco.editor.defineTheme("kebab-light", {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "a39483" },
+    { token: "string", foreground: "3f7d33" },
+    { token: "keyword", foreground: "b0331b" },
+    { token: "number", foreground: "946500" },
+    { token: "tag", foreground: "b0331b" },
+    { token: "attribute.name", foreground: "946500" },
+  ],
+  colors: {
+    "editor.background": "#fbf8f2",
+    "editor.foreground": "#1f1915",
+    "editorLineNumber.foreground": "#c9bcaa",
+    "editorLineNumber.activeForeground": "#74675b",
+    "editor.lineHighlightBackground": "#f4efe6",
+    "editor.lineHighlightBorder": "#00000000",
+    "editor.selectionBackground": "#c43a2030",
+    "editorCursor.foreground": "#c43a20",
+  },
+});
 
 // Pre-initialize Monaco - catches init errors at the source
 loader.init().catch(() => {
@@ -114,7 +164,11 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <HeroUIProvider>
           <App />
-          <Toaster position="bottom-right" richColors closeButton />
+          <Toaster
+            position="bottom-right"
+            closeButton
+            toastOptions={{ className: "lab-toast" }}
+          />
         </HeroUIProvider>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />

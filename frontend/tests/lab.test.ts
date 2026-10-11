@@ -107,11 +107,11 @@ describe("CTF evidence tools", () => {
     );
     assert.ok(
       snippets
-        .find((s) => s.label === "HTTP callback")
+        .find((s) => s.label === "GET")
         ?.code.includes("https://a.req.havet.dev:21337"),
     );
     assert.equal(
-      snippets.find((s) => s.label === "DNS callback")?.code,
+      snippets.find((s) => s.label === "DNS")?.code,
       "nslookup probe.a.req.havet.dev",
     );
     assert.ok(

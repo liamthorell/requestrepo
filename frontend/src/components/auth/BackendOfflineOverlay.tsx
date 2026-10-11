@@ -43,22 +43,21 @@ export function BackendOfflineOverlay() {
       isOpen={true}
       hideCloseButton
       isDismissable={false}
-      backdrop="blur"
       classNames={{
-        backdrop: "bg-black/80",
+        backdrop: "bg-[var(--lab-bg)]",
       }}
     >
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <WifiOff className="h-5 w-5 text-danger" />
-            <span>Cannot Connect to Backend</span>
+            <span>Can’t reach the server</span>
           </div>
         </ModalHeader>
         <ModalBody className="pb-6">
           <p className="text-sm text-default-500 mb-4">
-            Unable to connect to the RequestRepo backend service. This could be
-            a temporary network issue or the service may be unavailable.
+            The requestrepo backend isn’t answering. It may be restarting after
+            a deploy; try again in a moment.
           </p>
 
           <Button
@@ -68,7 +67,7 @@ export function BackendOfflineOverlay() {
             startContent={!isRetrying && <RefreshCw className="h-4 w-4" />}
             className="w-full"
           >
-            {isRetrying ? "Connecting..." : "Retry Connection"}
+            {isRetrying ? "Connecting…" : "Try again"}
           </Button>
         </ModalBody>
       </ModalContent>

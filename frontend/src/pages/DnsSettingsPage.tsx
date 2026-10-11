@@ -10,7 +10,7 @@ import {
   Divider,
   Chip,
 } from "@heroui/react";
-import { Plus, Trash2, Network } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -104,7 +104,6 @@ export function DnsSettingsPage() {
       <Card>
         <CardBody className="gap-2">
           <div className="flex items-center gap-2">
-            <Network className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">DNS Settings</h2>
           </div>
           <p className="text-sm text-default-500">

@@ -1,75 +1,69 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Radio, Flame } from "lucide-react";
-import { KebabMark } from "./KebabMark";
-import { SnippetCards } from "./CallbackKit";
+import { toast } from "sonner";
+import { SnippetTable } from "./CallbackKit";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useLabStore } from "@/stores/labStore";
+import { getBaseDomain } from "@/lib/config";
+import { copyToClipboard } from "@/lib/utils";
+
+export function LabFooter() {
+  return (
+    <p className="landing-foot">
+      KebabEngineers’ fork of{" "}
+      <a
+        href="https://github.com/adrgs/requestrepo"
+        target="_blank"
+        rel="noreferrer"
+      >
+        requestrepo
+      </a>
+      . Captures live in memory and are gone after a restart; export what you
+      need.
+    </p>
+  );
+}
 
 export function LabWelcome() {
+  const subdomain = useSessionStore((s) => s.activeSubdomain);
+  const scheme = useLabStore((s) => s.scheme);
+  const host = `${subdomain ?? "…"}.${getBaseDomain()}`;
+
   return (
-    <div className="lab-welcome">
-      <div className="welcome-hero">
-        <div className="hero-copy">
-          <span className="eyebrow">
-            <Flame size={13} /> KEBABENGINEERS / REQUEST LAB
-          </span>
-          <h1>
-            The grill is hot.
-            <br />
-            <span>Bring the callbacks.</span>
-          </h1>
-          <p>
-            Your workspace for HTTP, DNS and SMTP evidence. Catch the signal,
-            inspect the details, and keep the good bits for your write-up.
-          </p>
-          <div className="hero-status">
-            <Radio size={15} />
-            <span>Waiting for your first selection</span>
-          </div>
-        </div>
-        <div className="hero-emblem">
-          <div className="emblem-ring">
-            <KebabMark className="h-32 w-32 text-primary" />
-          </div>
-          <span>GOOD PAYLOADS. GREAT KEBABS.</span>
-        </div>
+    <div className="landing">
+      <h1>This session is listening on</h1>
+      <div className="landing-url">
+        <code>
+          <span>{scheme}://</span>
+          {host}
+        </code>
+        <button
+          type="button"
+          disabled={!subdomain}
+          onClick={() => {
+            copyToClipboard(`${scheme}://${host}`);
+            toast.success("URL copied");
+          }}
+        >
+          Copy
+        </button>
       </div>
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">01 / SEND A SIGNAL</span>
-          <h2>Callback cookbook</h2>
-        </div>
-        <span className="text-xs text-default-500">
-          Your session, already filled in
-        </span>
-      </div>
-      <SnippetCards />
-      <div className="welcome-links">
+      <p className="landing-lede">
+        HTTP and HTTPS on any path, DNS lookups for any name under it, and mail
+        to any address @{host}. Hits show up on the left as they land; pick one
+        to read the whole thing.
+      </p>
+
+      <h2>Snippets</h2>
+      <SnippetTable />
+
+      <div className="landing-next">
         <Link to="/response">
-          <div>
-            <span className="eyebrow">02 / SERVE SOMETHING</span>
-            <h3>Build a custom response</h3>
-            <p>Edit the body, headers and status code.</p>
-          </div>
-          <ArrowUpRight size={22} />
+          Edit the response <span>— body, status, headers</span>
         </Link>
         <Link to="/dns">
-          <div>
-            <span className="eyebrow">03 / FOLLOW THE TRAIL</span>
-            <h3>Configure DNS records</h3>
-            <p>Set up A, AAAA, CNAME and TXT answers.</p>
-          </div>
-          <ArrowUpRight size={22} />
+          DNS records <span>— A, AAAA, CNAME, TXT</span>
         </Link>
       </div>
-      <p className="lab-footer">
-        Made for KebabEngineers <span>✦</span> Powered by{" "}
-        <a
-          href="https://github.com/adrgs/requestrepo"
-          target="_blank"
-          rel="noreferrer"
-        >
-          RequestRepo
-        </a>
-      </p>
     </div>
   );
 }

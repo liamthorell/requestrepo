@@ -342,10 +342,9 @@ export function ResponseEditorPage() {
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="response-draft-bar">
         <div className="min-w-0">
-          <span className="eyebrow">RESPONSE KITCHEN</span>
-          <p className="truncate font-mono text-sm mt-1">{selectedFile}</p>
+          <p className="truncate font-mono text-sm">{selectedFile}</p>
         </div>
-        <span className="text-xs text-default-500">
+        <span className="draft-state" data-dirty={!serverFile || dirty}>
           {isLoadingFiles
             ? "Loading…"
             : !serverFile
@@ -365,7 +364,7 @@ export function ResponseEditorPage() {
           }}
         />
       </div>
-      <Card className="min-h-0 flex-1">
+      <Card className="min-h-0 flex-1 border border-[var(--lab-line)]">
         <CardBody className="flex h-full flex-col overflow-hidden p-0 md:flex-row">
           {/* Main Content: Editor + Settings */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -417,7 +416,7 @@ export function ResponseEditorPage() {
               <Editor
                 height="100%"
                 language={getLanguage(selectedFile)}
-                theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+                theme={resolvedTheme === "dark" ? "kebab-dark" : "kebab-light"}
                 value={content}
                 onChange={(value) => setContent(value ?? "")}
                 loading={
@@ -443,7 +442,7 @@ export function ResponseEditorPage() {
                 onClick={() => setSettingsExpanded(!settingsExpanded)}
               >
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-medium">Response Settings</h3>
+                  <h3 className="text-sm font-semibold">Status and headers</h3>
                   <button className="text-default-400 md:hidden">
                     {settingsExpanded ? (
                       <ChevronUp className="h-4 w-4" />
@@ -475,7 +474,7 @@ export function ResponseEditorPage() {
                 {/* Status Code */}
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
                   <label className="text-sm text-default-500 md:w-24">
-                    Status Code
+                    Status
                   </label>
                   <Input
                     aria-label="Response status code"
@@ -567,7 +566,7 @@ export function ResponseEditorPage() {
                       onPress={handleAddHeader}
                       className="mt-3"
                     >
-                      Add Header
+                      Add header
                     </Button>
                   </div>
                 </div>
@@ -576,12 +575,12 @@ export function ResponseEditorPage() {
           </div>
 
           {/* Right: File Explorer - Desktop only */}
-          <div className="hidden w-56 shrink-0 flex-col bg-default-50 dark:bg-zinc-900/50 md:flex">
+          <div className="hidden w-56 shrink-0 flex-col border-l border-[var(--lab-line)] bg-[var(--lab-bg)] md:flex">
             {/* Explorer Header */}
             <div className="flex items-center px-3 py-2 text-xs font-medium uppercase text-default-500">
               <span>Files</span>
-              <span className="ml-1 text-default-400">
-                (right-click for menu)
+              <span className="ml-1 normal-case text-default-400">
+                · right-click for more
               </span>
             </div>
 

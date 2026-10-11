@@ -142,24 +142,22 @@ export function KeyboardShortcuts() {
   return (
     <>
       <Tooltip content="Keyboard shortcuts (?)">
-        <Button
-          isIconOnly
-          size="sm"
-          variant="light"
+        <button
+          type="button"
           aria-label="Keyboard shortcuts"
-          className="hidden md:flex"
-          onPress={() => setOpen(true)}
+          className="icon-btn hidden md:inline-grid"
+          onClick={() => setOpen(true)}
         >
           <Keyboard size={16} />
-        </Button>
+        </button>
       </Tooltip>
-      <Modal isOpen={open} onOpenChange={setOpen} size="lg" backdrop="blur">
+      <Modal isOpen={open} onOpenChange={setOpen} size="lg">
         <ModalContent>
           <ModalHeader>Keyboard shortcuts</ModalHeader>
           <ModalBody>
             <p className="text-sm text-default-500">
-              Single-key shortcuts work when you’re not typing or using a
-              dialog. Queue actions use the current filters.
+              Single keys are ignored while you type. J and K step through the
+              list as currently filtered.
             </p>
             <dl className="shortcut-list">
               {shortcuts.map(([keys, label]) => (
