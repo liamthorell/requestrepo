@@ -45,10 +45,28 @@ export function isAdminRequiredError(error: unknown): boolean {
 // Session API
 export async function createSession(
   adminToken?: string,
+  name?: string,
 ): Promise<SessionCreateResponse> {
-  const payload = adminToken ? { admin_token: adminToken } : {};
+  const payload = {
+    ...(adminToken ? { admin_token: adminToken } : {}),
+    ...(name ? { name } : {}),
+  };
   const { data } = await api.post<SessionCreateResponse>("/sessions", payload);
   return data;
+}
+
+// Gives a custom name back and deletes what was captured on it.
+export async function releaseSession(token: string): Promise<void> {
+  await api.delete("/sessions", { headers: authHeaders(token) });
+}
+
+// The server's own message for a failed request, if it sent one.
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as { error?: string } | undefined;
+    if (data?.error) return data.error;
+  }
+  return fallback;
 }
 
 // DNS API
@@ -179,6 +197,7 @@ export async function getSharedRequest(
 
 export const apiClient = {
   createSession,
+  releaseSession,
   getDnsRecords,
   updateDnsRecords,
   getFiles,

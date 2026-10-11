@@ -9,7 +9,7 @@ import { copyToClipboard } from "@/lib/utils";
 export function LabFooter() {
   return (
     <p className="landing-foot">
-      KebabEngineers’ fork of{" "}
+      KebabReq is a fork of{" "}
       <a
         href="https://github.com/adrgs/requestrepo"
         target="_blank"

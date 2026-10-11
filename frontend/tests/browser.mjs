@@ -154,18 +154,15 @@ try {
     () => document.querySelector(".lab-sidebar .overflow-auto")?.scrollTop > 0,
   );
   await page.selectOption('select[aria-label="Callback URL scheme"]', "http");
-  await page.getByRole("button", { name: "Callback snippets" }).click();
-  await page.getByRole("dialog").waitFor();
-  assert.match(
-    await page
-      .getByRole("dialog")
-      .locator(".snippet-table code")
-      .first()
-      .innerText(),
-    /http:\/\//,
+  assert.equal(
+    await page.getByRole("button", { name: "Callback snippets" }).count(),
+    0,
   );
-  await page.getByRole("button", { name: "Close", exact: true }).last().click();
-  console.log("PASS pause control and scheme-aware callback cookbook");
+  assert.equal(
+    await page.locator('select[aria-label="Callback URL scheme"]').inputValue(),
+    "http",
+  );
+  console.log("PASS pause control and callback scheme choice");
   await page.getByRole("button", { name: "Response", exact: true }).click();
   await page.locator(".monaco-editor").waitFor();
   await page.locator(".monaco-editor").click();

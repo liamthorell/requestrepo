@@ -522,7 +522,8 @@ fn extract_subdomain_from_key(key: &str) -> Option<String> {
                 let stripped = stripped.trim_end_matches('.');
                 // The last label in the remaining string is the subdomain
                 if let Some(sub) = stripped.rsplit('.').next() {
-                    if sub.len() == CONFIG.subdomain_length {
+                    if sub.len() == CONFIG.subdomain_length || crate::utils::names::is_claimed(sub)
+                    {
                         return Some(sub.to_string());
                     }
                 }

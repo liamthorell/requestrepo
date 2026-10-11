@@ -1,8 +1,9 @@
-# KebabEngineers /req
+# KebabReq
 
-Liam's frontend fork of [adrgs/requestrepo](https://github.com/adrgs/requestrepo),
-served at **https://req.havet.dev**. The `kebab-lab` branch starts from upstream
-`73f3d3082d8570508f5fe29864411bcc15379ddb`, matching the deployed backend.
+Liam's fork of [adrgs/requestrepo](https://github.com/adrgs/requestrepo), served at
+**https://req.havet.dev**. The `kebab-lab` branch starts from upstream
+`73f3d3082d8570508f5fe29864411bcc15379ddb`; the frontend is reworked and the
+backend adds custom session names.
 
 ## What changed
 
@@ -13,6 +14,14 @@ served at **https://req.havet.dev**. The `kebab-lab` branch starts from upstream
   and `tailwind.config.ts`; the Monaco themes are defined in `src/main.tsx`.
 - A plain sign-in page, and a landing view with the session URL and a table of
   copyable snippets for HTTP, POST, DNS, fetch(), <img> and SMTP.
+- Custom session names: `+` (new session) and "New URL" open a dialog where you
+  can claim e.g. `ssrf.req.havet.dev` or leave it empty for a random ID. Names are
+  3–32 letters, digits and hyphens; 8-character names without a hyphen stay
+  reserved for random IDs. The backend keeps claims in `CUSTOM_NAMES_FILE`
+  (`/app/data/custom-names.json` on a volume) and puts a claim id in the session
+  JWT, so old tokens stop working once a name is released. Closing the session,
+  or swapping it for a new URL, releases the name and deletes what it captured.
+  Sessions opened from a share link never release the name.
 - HTTP/HTTPS choice for copied URLs and snippets. HTTPS is the default; this
   affects generated URLs only, not the server's listening ports.
 - Request bookmarks, a bookmarks-only filter, and per-request evidence notes.
@@ -64,16 +73,16 @@ cross-session editor isolation and mobile controls using the same environment fl
 
 ## Deployment and upgrades
 
-`Dockerfile.kebab` builds only the customized frontend and overlays it onto the
-pinned upstream image. The Rust API, authentication, HTTP/HTTPS, DNS, SMTP,
-certificate storage, and container user are inherited from that image.
+`Dockerfile.kebab` builds the fork's Rust backend and frontend and copies both onto
+the pinned upstream image, which supplies the runtime, the DB-IP data and the
+container user. Backend checks: `cd src && JWT_SECRET=test_secret_for_ci_minimum_32_characters cargo test`.
 
 The actual deployment lives in `~/dev/havet.dev/sites/req`. Its Dockerfile fetches
-this fork at an exact commit, verifies the source archive checksum and builds the
-frontend; the compose file retains the existing ports, secrets, limits and
-certificate volume. Update the pinned commit/checksum there, then run
-`havet deploy req`. Reverting the compose file to
-`image: ghcr.io/adrgs/requestrepo:73f3d30` restores the upstream UI.
+this fork at an exact commit, verifies the source archive checksum and builds
+the same way; the compose file keeps the ports, secrets, limits and certificate
+volume and adds a `requestrepo-data` volume for custom names. Update the pinned
+commit/checksum there, then run `havet deploy req` (the Rust build takes a while
+on orcy).
 
 To upgrade, compare upstream first and test the UI against the intended backend.
 Update the backend pin and frontend base together if the API changes. Keep the

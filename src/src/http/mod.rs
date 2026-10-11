@@ -195,7 +195,10 @@ fn create_router(state: AppState) -> Router {
     // API routes - these need CORS for browser requests
     let api_routes = Router::new()
         .route("/health", get(routes::health))
-        .route("/api/v2/sessions", post(routes_v2::create_session))
+        .route(
+            "/api/v2/sessions",
+            post(routes_v2::create_session).delete(routes_v2::release_session),
+        )
         .route(
             "/api/v2/dns",
             get(routes_v2::get_dns).put(routes_v2::update_dns),

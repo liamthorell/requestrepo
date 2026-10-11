@@ -114,6 +114,9 @@ pub struct Claims {
     pub iat: i64,
     pub exp: i64,
     pub subdomain: String,
+    /// Claim id for custom names (see utils::names). Absent for random subdomains.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cid: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::cache::Cache;
-    use crate::utils::generate_jwt;
+    use crate::utils::generate_session_jwt;
     use serde_json::json;
     use std::sync::Arc;
 
@@ -14,7 +14,7 @@ mod tests {
         let cache = Arc::new(Cache::new());
 
         let subdomain = "testsubdomain";
-        let token = generate_jwt(subdomain).unwrap();
+        let token = generate_session_jwt(subdomain, None).unwrap();
 
         // Verify JWT was generated (actual verification depends on env config)
         assert!(!token.is_empty());

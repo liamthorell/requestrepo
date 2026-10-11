@@ -79,7 +79,10 @@ try {
     () => document.querySelectorAll(".queue-item").length === 2,
   );
   await page
-    .getByRole("heading", { name: "This session is listening on", exact: false })
+    .getByRole("heading", {
+      name: "This session is listening on",
+      exact: false,
+    })
     .click();
   const ids = await page
     .locator(".queue-item")
@@ -192,6 +195,7 @@ try {
 
   await preset("302 redirect", "https://example.com/unsaved");
   await button("New session").click();
+  await button("Get a random URL").click();
   await page.waitForFunction(
     (old) =>
       document.querySelector('input[aria-label="Callback domain"]')?.value !==

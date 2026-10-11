@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::utils::auth::{can_create_session, is_admin_token_required, verify_admin_token};
-    use crate::utils::{generate_jwt, verify_jwt};
+    use crate::utils::{generate_session_jwt, verify_jwt};
 
     #[test]
     fn test_jwt_generation_and_verification() {
@@ -13,7 +13,7 @@ mod tests {
         }
 
         let subdomain = "testsubdomain";
-        let token = generate_jwt(subdomain).expect("Failed to generate JWT");
+        let token = generate_session_jwt(subdomain, None).expect("Failed to generate JWT");
 
         let _verified_subdomain = verify_jwt(&token);
         // If verification fails, it might be due to lazy_static initialization

@@ -38,6 +38,8 @@ pub struct Config {
     pub cert_check_hours: u64,
     // IP certificate configuration (short-lived, 6-day certs via HTTP-01)
     pub ip_cert_enabled: bool,
+    /// Where claimed custom session names are saved. Unset keeps them in memory.
+    pub custom_names_file: Option<String>,
     pub ip_cert_check_hours: u64,
     pub ip_cert_renewal_hours: u64,
     // Rate limiting for session creation
@@ -178,6 +180,9 @@ impl Config {
             .unwrap_or(12);
 
         // IP certificate configuration
+        let custom_names_file = env::var("CUSTOM_NAMES_FILE")
+            .ok()
+            .filter(|path| !path.trim().is_empty());
         let ip_cert_enabled = env::var("IP_CERT_ENABLED")
             .unwrap_or_else(|_| "false".to_string())
             .to_lowercase()
@@ -251,6 +256,7 @@ impl Config {
             cert_renewal_days,
             cert_check_hours,
             ip_cert_enabled,
+            custom_names_file,
             ip_cert_check_hours,
             ip_cert_renewal_hours,
             session_rate_limit,

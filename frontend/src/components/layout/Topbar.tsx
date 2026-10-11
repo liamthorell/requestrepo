@@ -6,11 +6,11 @@ import { ThemeToggle } from "./ThemeToggle";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useRequestStore } from "@/stores/requestStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useAuthStore } from "@/stores/authStore";
-import { apiClient, isAdminRequiredError } from "@/api/client";
+import { apiClient } from "@/api/client";
 import { copyToClipboard } from "@/lib/utils";
 import { KebabMark } from "./KebabMark";
 import { SessionNaming } from "./SessionNaming";
+import { SessionDialog } from "./SessionDialog";
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
 import { useLabStore } from "@/stores/labStore";
 import { getBaseDomain } from "@/lib/config";
@@ -21,7 +21,6 @@ export function Topbar() {
   const sessionLabels = useLabStore((s) => s.sessionLabels);
   const sessions = useSessionStore((s) => s.sessions);
   const activeSubdomain = useSessionStore((s) => s.activeSubdomain);
-  const addSession = useSessionStore((s) => s.addSession);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const removeSession = useSessionStore((s) => s.removeSession);
 
@@ -43,29 +42,13 @@ export function Topbar() {
     return requests.filter((r) => !visitedRequests[subdomain]?.[r._id]).length;
   };
 
-  const setShowAuthOverlay = useAuthStore((s) => s.setShowAuthOverlay);
-
-  const handleCreateSession = async () => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const handleCreateSession = () => {
     if (sessions.length >= MAX_SESSIONS) {
       toast.error(`Maximum ${MAX_SESSIONS} sessions allowed`);
       return;
     }
-    try {
-      const response = await apiClient.createSession();
-      addSession({
-        subdomain: response.subdomain,
-        token: response.token,
-        createdAt: new Date().toISOString(),
-      });
-      toast.success(`Session created: ${response.subdomain}`);
-    } catch (error) {
-      if (isAdminRequiredError(error)) {
-        // Show auth overlay - user needs to enter admin password
-        setShowAuthOverlay(true);
-      } else {
-        toast.error("Failed to create session");
-      }
-    }
+    setDialogOpen(true);
   };
 
   const handleShare = () => {
@@ -78,11 +61,26 @@ export function Topbar() {
     }
   };
 
-  const handleCloseSession = (e: React.MouseEvent, subdomain: string) => {
+  const handleCloseSession = async (e: React.MouseEvent, subdomain: string) => {
     e.stopPropagation();
     if (sessions.length === 1) {
       toast.error("Cannot close the last session");
       return;
+    }
+    const session = sessions.find((s) => s.subdomain === subdomain);
+    if (session?.custom) {
+      if (
+        !window.confirm(
+          `Close ${subdomain}? The name is released and everything it captured is deleted.`,
+        )
+      )
+        return;
+      try {
+        await apiClient.releaseSession(session.token);
+      } catch {
+        toast.error(`Couldn’t release ${subdomain}`);
+        return;
+      }
     }
     removeSession(subdomain);
     toast.success(`Session ${subdomain} closed`);
@@ -135,12 +133,12 @@ export function Topbar() {
         <a
           href="/"
           className="wordmark shrink-0 pr-1 md:pr-3"
-          aria-label="KebabEngineers requests home"
+          aria-label="KebabReq home"
         >
           <KebabMark className="h-7 w-7" />
           <span className="hidden sm:flex sm:items-baseline">
-            <b>KebabEngineers</b>
-            <i>/req</i>
+            <b>Kebab</b>
+            <i>Req</i>
           </span>
         </a>
 
@@ -219,6 +217,12 @@ export function Topbar() {
         </button>
         <div className="ml-2">{searchField(false)}</div>
       </div>
+
+      <SessionDialog
+        mode="new"
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
 
       {searchVisible && (
         <div className="absolute left-0 right-0 top-12 z-50 border-b border-[var(--lab-line)] bg-[var(--lab-bg)] p-2 md:hidden">

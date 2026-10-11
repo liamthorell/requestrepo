@@ -19,8 +19,10 @@ use crate::models::{DnsRecord, DnsRecords, FileTree};
 use crate::utils::config::CONFIG;
 use crate::utils::{
     auth::{can_create_session, is_admin_token_required},
-    generate_jwt, generate_share_jwt, get_current_timestamp, get_random_subdomain, verify_jwt,
-    verify_share_jwt, write_basic_file,
+    generate_session_jwt, generate_share_jwt, get_current_timestamp, get_random_subdomain,
+    jwt_claim_id,
+    names::{self, ClaimError},
+    verify_jwt, verify_share_jwt, write_basic_file,
 };
 
 // ============================================================================
@@ -58,6 +60,8 @@ pub struct ErrorResponse {
 #[derive(Debug, Deserialize)]
 pub struct CreateSessionRequest {
     pub admin_token: Option<String>,
+    /// Optional custom name to claim instead of a random subdomain.
+    pub name: Option<String>,
 }
 
 // ============================================================================
@@ -248,8 +252,39 @@ pub async fn create_session(
             .into_response();
     }
 
-    let subdomain = get_random_subdomain();
-    let token = match generate_jwt(&subdomain) {
+    let requested_name = body
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty());
+    let (subdomain, cid) = match requested_name {
+        None => (get_random_subdomain(), None),
+        Some(name) => match names::claim(name, get_current_timestamp()) {
+            Ok((name, cid)) => (name, Some(cid)),
+            Err(ClaimError::Invalid(message)) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": message, "code": "invalid_name" })),
+                )
+                    .into_response();
+            }
+            Err(ClaimError::Taken) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(json!({ "error": "That name is already in use.", "code": "name_taken" })),
+                )
+                    .into_response();
+            }
+            Err(ClaimError::Full) => {
+                return (
+                    StatusCode::INSUFFICIENT_STORAGE,
+                    Json(json!({ "error": "No more custom names can be claimed.", "code": "names_full" })),
+                )
+                    .into_response();
+            }
+        },
+    };
+    let token = match generate_session_jwt(&subdomain, cid) {
         Ok(t) => t,
         Err(e) => {
             return (
@@ -861,6 +896,50 @@ pub async fn delete_request(
         Json(json!({ "message": "Request deleted" })),
     )
         .into_response()
+}
+
+/// DELETE /api/v2/sessions - Release a custom name and wipe what it captured.
+/// Random subdomains have nothing to release; the call is a no-op for them.
+pub async fn release_session(
+    State(state): State<AppState>,
+    Query(query): Query<TokenQuery>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let subdomain = match verify_token_or_error(&query, &headers) {
+        Ok(s) => s,
+        Err(e) => return e.into_response(),
+    };
+    let Some(cid) = extract_token(&query, &headers).and_then(|t| jwt_claim_id(&t)) else {
+        return (StatusCode::OK, Json(json!({ "released": false }))).into_response();
+    };
+
+    // Clear data first so the next holder of the name starts empty.
+    if let Ok(Some(records_json)) = state.cache.get(&format!("dns:{subdomain}")).await {
+        if let Ok(records) = serde_json::from_str::<Vec<HashMap<String, String>>>(&records_json) {
+            for record in records {
+                if let (Some(record_type), Some(short_domain)) =
+                    (record.get("type"), record.get("domain"))
+                {
+                    let fqdn = format!("{}.{}.{}.", short_domain, subdomain, CONFIG.server_domain);
+                    let _ = state
+                        .cache
+                        .delete(&format!("dns:{record_type}:{fqdn}"))
+                        .await;
+                }
+            }
+        }
+    }
+    for key in ["requests", "files", "dns"] {
+        let _ = state.cache.delete(&format!("{key}:{subdomain}")).await;
+    }
+    let _ = state.tx.send(crate::models::CacheMessage {
+        cmd: "delete_all".to_string(),
+        subdomain: subdomain.clone(),
+        data: "{}".to_string(),
+    });
+
+    let released = names::release(&subdomain, &cid);
+    (StatusCode::OK, Json(json!({ "released": released }))).into_response()
 }
 
 /// DELETE /api/v2/requests - Delete all requests

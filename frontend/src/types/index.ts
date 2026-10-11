@@ -3,6 +3,8 @@ export interface Session {
   subdomain: string;
   token: string;
   createdAt: string;
+  /** A claimed custom name created in this browser (released on close). */
+  custom?: boolean;
 }
 
 // Request types (discriminated union)

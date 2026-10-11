@@ -2,8 +2,8 @@
 mod tests {
     use crate::utils::config::CONFIG;
     use crate::utils::{
-        generate_jwt, get_random_subdomain, get_subdomain_from_hostname, get_subdomain_from_path,
-        verify_jwt, verify_subdomain,
+        generate_session_jwt, get_random_subdomain, get_subdomain_from_hostname,
+        get_subdomain_from_path, verify_jwt, verify_subdomain,
     };
     use std::collections::HashSet;
 
@@ -58,7 +58,7 @@ mod tests {
     fn test_jwt() {
         let subdomain = "abcdefgh";
 
-        let token = generate_jwt(subdomain).unwrap();
+        let token = generate_session_jwt(subdomain, None).unwrap();
 
         let verified_subdomain = verify_jwt(&token);
         assert_eq!(verified_subdomain, Some(subdomain.to_string()));

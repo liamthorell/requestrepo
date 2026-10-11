@@ -47,8 +47,8 @@ export function AdminAuthOverlay({ onSubmit }: AdminAuthOverlayProps) {
         <div className="wordmark" id="signin-title">
           <KebabMark className="h-11 w-11" />
           <span className="flex items-baseline">
-            <b>KebabEngineers</b>
-            <i>/req</i>
+            <b>Kebab</b>
+            <i>Req</i>
           </span>
         </div>
         <p>

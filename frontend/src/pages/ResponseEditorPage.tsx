@@ -472,103 +472,104 @@ export function ResponseEditorPage() {
                 }`}
               >
                 {/* Status Code */}
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
-                  <label className="text-sm text-default-500 md:w-24">
+                <div className="flex items-center gap-3">
+                  <label
+                    className="w-16 shrink-0 text-sm text-default-500"
+                    htmlFor="response-status"
+                  >
                     Status
                   </label>
                   <Input
+                    id="response-status"
                     aria-label="Response status code"
                     type="number"
                     size="sm"
+                    variant="bordered"
                     value={statusCode}
                     onValueChange={setStatusCode}
                     min={100}
                     max={599}
-                    className="w-full md:w-32"
+                    className="w-28"
                     classNames={{
                       input: "font-mono",
                     }}
                   />
                 </div>
 
-                {/* Headers */}
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:gap-4">
-                  <label className="text-sm text-default-500 md:w-24 md:pt-2">
-                    Headers
-                  </label>
-                  <div className="flex-1">
-                    <div className="space-y-3">
-                      {headers.map((header, index) => (
-                        <div
-                          key={index}
-                          className="flex flex-col gap-2 rounded-lg bg-default-50 p-2 md:flex-row md:items-center md:bg-transparent md:p-0"
-                        >
-                          <Autocomplete
-                            size="sm"
-                            placeholder="Header name"
-                            defaultItems={HTTP_HEADERS.map((h) => ({
-                              value: h,
-                            }))}
-                            inputValue={header.header}
-                            onInputChange={(value) =>
-                              handleHeaderChange(index, "header", value)
-                            }
-                            onSelectionChange={(key) => {
-                              if (key)
-                                handleHeaderChange(
-                                  index,
-                                  "header",
-                                  String(key),
-                                );
-                            }}
-                            className="w-full md:w-64 lg:w-80"
-                            classNames={{
-                              base: "font-mono text-sm",
-                            }}
-                            allowsCustomValue
-                          >
-                            {(item) => (
-                              <AutocompleteItem key={item.value}>
-                                {item.value}
-                              </AutocompleteItem>
-                            )}
-                          </Autocomplete>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              size="sm"
-                              placeholder="Value"
-                              value={header.value}
-                              onValueChange={(v) =>
-                                handleHeaderChange(index, "value", v)
-                              }
-                              className="flex-1"
-                              classNames={{
-                                input: "font-mono text-sm",
-                              }}
-                            />
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              color="danger"
-                              onPress={() => handleRemoveHeader(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="flat"
-                      startContent={<Plus className="h-4 w-4" />}
-                      onPress={handleAddHeader}
-                      className="mt-3"
-                    >
-                      Add header
-                    </Button>
+                {/* Headers: name and value share the full width */}
+                <div>
+                  <div className="mb-2 grid grid-cols-[minmax(0,1fr)_2rem] gap-2 text-xs text-default-500 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_2rem]">
+                    <span>Header</span>
+                    <span className="hidden md:block">Value</span>
                   </div>
+                  <div className="space-y-2">
+                    {headers.map((header, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-2 border-b border-[var(--lab-line)] pb-2 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_2rem] md:border-0 md:pb-0"
+                      >
+                        <Autocomplete
+                          size="sm"
+                          variant="bordered"
+                          aria-label="Header name"
+                          placeholder="Header name"
+                          defaultItems={HTTP_HEADERS.map((h) => ({
+                            value: h,
+                          }))}
+                          inputValue={header.header}
+                          onInputChange={(value) =>
+                            handleHeaderChange(index, "header", value)
+                          }
+                          onSelectionChange={(key) => {
+                            if (key)
+                              handleHeaderChange(index, "header", String(key));
+                          }}
+                          className="col-span-2 w-full md:col-span-1"
+                          classNames={{
+                            base: "font-mono text-sm",
+                          }}
+                          allowsCustomValue
+                        >
+                          {(item) => (
+                            <AutocompleteItem key={item.value}>
+                              {item.value}
+                            </AutocompleteItem>
+                          )}
+                        </Autocomplete>
+                        <Input
+                          size="sm"
+                          variant="bordered"
+                          aria-label={`Value for ${header.header || "header"}`}
+                          placeholder="Value"
+                          title={header.value}
+                          value={header.value}
+                          onValueChange={(v) =>
+                            handleHeaderChange(index, "value", v)
+                          }
+                          className="w-full"
+                          classNames={{
+                            input: "font-mono text-sm",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="icon-btn hover:!text-[var(--m-delete)]"
+                          aria-label={`Remove ${header.header || "header"}`}
+                          onClick={() => handleRemoveHeader(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-btn mt-2 -ml-2"
+                    onClick={handleAddHeader}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add header
+                  </button>
                 </div>
               </div>
             </div>

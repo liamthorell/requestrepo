@@ -1,4 +1,13 @@
-# Frontend-only customization. Keep the known-working Rust backend and its certs.
+# KebabReq: fork backend (custom session names) + fork frontend, on the upstream
+# runtime image so certs, the DB-IP data and the container user stay identical.
+FROM rust:1.88-slim-bookworm AS rust-builder
+RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY src/Cargo.toml src/Cargo.lock ./
+COPY src/src ./src
+RUN cargo build --release --locked
+
 FROM oven/bun:1.4.2-slim AS frontend-builder
 WORKDIR /frontend
 COPY frontend/package.json frontend/bun.lock ./
@@ -7,4 +16,10 @@ COPY frontend/ ./
 RUN bun run build
 
 FROM ghcr.io/adrgs/requestrepo:73f3d30
+USER root
+RUN mkdir -p /app/data && chown 1000:1000 /app/data
+COPY --from=rust-builder /app/target/release/requestrepo /app/requestrepo
 COPY --from=frontend-builder --chown=1000:1000 /frontend/dist/ /app/public/
+USER requestrepo
+ENV CUSTOM_NAMES_FILE=/app/data/custom-names.json
+VOLUME /app/data

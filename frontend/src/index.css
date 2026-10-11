@@ -152,8 +152,7 @@ textarea:focus-visible {
   font-size: 19px;
   font-weight: 800;
   font-stretch: 68%;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   line-height: 1;
 }
 .wordmark i {
@@ -161,7 +160,6 @@ textarea:focus-visible {
   font-size: 19px;
   font-weight: 400;
   font-stretch: 68%;
-  text-transform: uppercase;
   color: var(--lab-accent-ink);
   line-height: 1;
 }
@@ -318,7 +316,6 @@ kbd.key {
 }
 .url-group input {
   min-width: 0;
-  width: 17rem;
   padding: 0 10px;
   background: transparent;
   font:
@@ -776,6 +773,44 @@ kbd.key {
   padding: 2px 6px;
 }
 
+/* ---- Session name ---------------------------------------------------- */
+
+.name-field {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border: 1px solid var(--lab-line);
+  border-radius: 4px;
+  background: var(--lab-surface);
+  font:
+    14px "IBM Plex Mono",
+    monospace;
+}
+.name-field:focus-within {
+  border-color: var(--lab-muted);
+}
+.name-field[data-invalid="true"] {
+  border-color: var(--m-delete);
+}
+.name-field input {
+  flex: 1;
+  min-width: 4ch;
+  height: 100%;
+  padding: 0 0 0 12px;
+  background: transparent;
+  outline: none;
+  text-align: right;
+  color: var(--lab-ink);
+}
+.name-field input::placeholder {
+  color: var(--lab-faint);
+}
+.name-field span {
+  padding-right: 12px;
+  color: var(--lab-muted);
+  white-space: nowrap;
+}
+
 /* ---- Sign-in -------------------------------------------------------- */
 
 .signin {
@@ -867,7 +902,7 @@ kbd.key {
 
 @media (max-width: 1279px) {
   .url-group input {
-    width: 100%;
+    width: 100% !important;
   }
 }
 @media (max-width: 767px) {

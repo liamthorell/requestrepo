@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod config;
+pub mod names;
 
 use crate::models::{Claims, ShareClaims};
 use config::CONFIG;
@@ -31,21 +32,26 @@ pub fn verify_jwt(token: &str) -> Option<String> {
     let validation = Validation::default();
     let key = DecodingKey::from_secret(CONFIG.jwt_secret.as_bytes());
 
-    match decode::<Claims>(token, &key, &validation) {
-        Ok(token_data) => {
-            let subdomain = token_data.claims.subdomain;
-            if verify_subdomain(
-                &subdomain,
-                CONFIG.subdomain_length,
-                &CONFIG.subdomain_alphabet_set,
-            ) {
-                Some(subdomain)
-            } else {
-                None
-            }
-        }
-        Err(_) => None,
+    let claims = decode::<Claims>(token, &key, &validation).ok()?.claims;
+    match claims.cid {
+        // Random subdomain: the signature alone proves ownership.
+        None => verify_subdomain(
+            &claims.subdomain,
+            CONFIG.subdomain_length,
+            &CONFIG.subdomain_alphabet_set,
+        )
+        .then_some(claims.subdomain),
+        // Custom name: only valid while this exact claim is still held.
+        Some(cid) => (names::claim_id(&claims.subdomain).as_deref() == Some(cid.as_str()))
+            .then_some(claims.subdomain),
     }
+}
+
+/// Claim id embedded in a session token, for releasing a custom name.
+pub fn jwt_claim_id(token: &str) -> Option<String> {
+    let validation = Validation::default();
+    let key = DecodingKey::from_secret(CONFIG.jwt_secret.as_bytes());
+    decode::<Claims>(token, &key, &validation).ok()?.claims.cid
 }
 
 pub fn get_random_subdomain() -> String {
@@ -73,6 +79,10 @@ pub fn get_subdomain_from_path(path: &str) -> Option<String> {
     }
 
     let path = path[2..].trim_start_matches('/');
+    let first_segment = path.split('/').next().unwrap_or("");
+    if names::is_claimed(first_segment) {
+        return Some(first_segment.to_string());
+    }
     let subdomain = path
         .chars()
         .take(CONFIG.subdomain_length)
@@ -110,10 +120,13 @@ pub fn get_file_path_from_url(path: &str, on_main_domain: bool) -> String {
 
     // Skip "r/" + subdomain length
     let after_r = trimmed[2..].trim_start_matches('/');
-    let after_subdomain = after_r
-        .chars()
-        .skip(CONFIG.subdomain_length)
-        .collect::<String>();
+    let first_segment = after_r.split('/').next().unwrap_or("");
+    let skip = if names::is_claimed(first_segment) {
+        first_segment.chars().count()
+    } else {
+        CONFIG.subdomain_length
+    };
+    let after_subdomain = after_r.chars().skip(skip).collect::<String>();
     let trimmed_path = after_subdomain.trim_start_matches('/');
 
     if trimmed_path.is_empty() {
@@ -132,6 +145,15 @@ pub fn get_subdomain_from_hostname(host: &str) -> Option<String> {
     let domain = &CONFIG.server_domain;
 
     let r_index = host.rfind(domain)?;
+
+    // Custom names are whole labels: the one right before the base domain.
+    if r_index > 1 && host.as_bytes()[r_index - 1] == b'.' {
+        let label = host[..r_index - 1].rsplit('.').next().unwrap_or("");
+        if names::is_claimed(label) {
+            return Some(label.to_string());
+        }
+    }
+
     if r_index < CONFIG.subdomain_length + 1 {
         return None;
     }
@@ -155,7 +177,10 @@ pub fn get_subdomain_from_hostname(host: &str) -> Option<String> {
     Some(subdomain.to_string())
 }
 
-pub fn generate_jwt(subdomain: &str) -> Result<String, jsonwebtoken::errors::Error> {
+pub fn generate_session_jwt(
+    subdomain: &str,
+    cid: Option<String>,
+) -> Result<String, jsonwebtoken::errors::Error> {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_else(|_| Duration::from_secs(0))
@@ -165,6 +190,7 @@ pub fn generate_jwt(subdomain: &str) -> Result<String, jsonwebtoken::errors::Err
         iat: now,
         exp: now + 60 * 60 * 24 * 365, // 1 year
         subdomain: subdomain.to_string(),
+        cid,
     };
 
     let header = Header::default();

@@ -1,26 +1,22 @@
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tooltip } from "@heroui/react";
 import { Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useAuthStore } from "@/stores/authStore";
-import { apiClient, isAdminRequiredError } from "@/api/client";
 import { copyToClipboard } from "@/lib/utils";
-import { CallbackKit } from "./CallbackKit";
+import { SessionDialog } from "./SessionDialog";
 import { useLabStore } from "@/stores/labStore";
 import { getBaseDomain } from "@/lib/config";
 
 export function Toolbar() {
+  const [dialogOpen, setDialogOpen] = useState(false);
   const scheme = useLabStore((s) => s.scheme);
-  const moveSessionLabel = useLabStore((s) => s.moveSessionLabel);
   const setScheme = useLabStore((s) => s.setScheme);
   const navigate = useNavigate();
   const location = useLocation();
   const sessions = useSessionStore((s) => s.sessions);
   const activeSubdomain = useSessionStore((s) => s.activeSubdomain);
-  const replaceSession = useSessionStore((s) => s.replaceSession);
-
-  const setShowAuthOverlay = useAuthStore((s) => s.setShowAuthOverlay);
 
   const session = sessions.find((s) => s.subdomain === activeSubdomain);
   const currentPath = location.pathname.split("/")[1] || "requests";
@@ -30,29 +26,6 @@ export function Toolbar() {
   const handleCopyUrl = () => {
     copyToClipboard(`${scheme}://${fullDomain}`);
     toast.success("URL copied");
-  };
-
-  const handleNewUrl = async () => {
-    if (!activeSubdomain) {
-      toast.error("No active session");
-      return;
-    }
-    try {
-      const response = await apiClient.createSession();
-      replaceSession(activeSubdomain, {
-        subdomain: response.subdomain,
-        token: response.token,
-        createdAt: new Date().toISOString(),
-      });
-      moveSessionLabel(activeSubdomain, response.subdomain);
-      toast.success(`New URL: ${response.subdomain}`);
-    } catch (error) {
-      if (isAdminRequiredError(error)) {
-        setShowAuthOverlay(true);
-      } else {
-        toast.error("Failed to get new URL");
-      }
-    }
   };
 
   const tabs = [
@@ -77,7 +50,6 @@ export function Toolbar() {
             <span className="nav-key">{tab.shortcut}</span>
           </button>
         ))}
-        <CallbackKit />
       </nav>
 
       <div className="flex min-w-0 basis-full items-center justify-end gap-1 pb-2 xl:basis-auto xl:flex-1 xl:pb-0">
@@ -96,6 +68,9 @@ export function Toolbar() {
             readOnly
             disabled={!session}
             title="Click to copy the bare domain"
+            style={{
+              width: `${Math.min(Math.max(fullDomain.length, 18), 42) + 3}ch`,
+            }}
             onClick={() => {
               copyToClipboard(fullDomain);
               toast.success("Domain copied");
@@ -112,19 +87,24 @@ export function Toolbar() {
             <span className="hidden sm:inline">Copy</span>
           </button>
         </div>
-        <Tooltip content="Swap this session for a fresh subdomain">
+        <Tooltip content="Swap this session for a random or named subdomain">
           <button
             type="button"
             className="text-btn shrink-0"
             disabled={!session}
             aria-label="New callback URL"
-            onClick={handleNewUrl}
+            onClick={() => setDialogOpen(true)}
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span className="hidden md:inline">New URL</span>
           </button>
         </Tooltip>
       </div>
+      <SessionDialog
+        mode="replace"
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }
