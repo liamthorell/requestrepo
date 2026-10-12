@@ -35,6 +35,7 @@ export interface DnsRequest extends BaseRequest {
   domain: string; // The queried domain name
   query_type: string; // DNS record type (A, AAAA, TXT, etc)
   reply?: string; // Response (optional, added for display)
+  rebinding?: import("./rebinding").RebindingMetadata;
 }
 
 export interface SmtpAttachment {
