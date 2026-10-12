@@ -6,3 +6,5 @@ mod dns_tests;
 mod http_tests;
 mod names_tests;
 mod utils_tests;
+
+mod rebinding_tests;

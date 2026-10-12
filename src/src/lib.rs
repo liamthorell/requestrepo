@@ -4,6 +4,7 @@ mod dns;
 mod http;
 mod ip2country;
 mod models;
+mod rebinding;
 mod smtp;
 mod tcp;
 mod utils;
