@@ -1,3 +1,4 @@
+import { RebindingPanel } from "@/components/dns/RebindingPanel";
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Card,
@@ -26,6 +27,7 @@ export function DnsSettingsPage() {
   const activeSubdomain = useSessionStore((s) => s.activeSubdomain);
   const session = sessions.find((s) => s.subdomain === activeSubdomain);
   const queryClient = useQueryClient();
+  const [view, setView] = useState<"records" | "rebinding">("records");
 
   const [newRecord, setNewRecord] = useState<Partial<DnsRecord>>({
     domain: "",
@@ -84,7 +86,7 @@ export function DnsSettingsPage() {
   // Global Ctrl/Cmd+S to add record
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+      if (view === "records" && (e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         e.stopPropagation();
         handleAddRef.current();
@@ -92,7 +94,7 @@ export function DnsSettingsPage() {
     };
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, []);
+  }, [view]);
 
   if (!session) {
     return <div>No session selected</div>;
@@ -100,6 +102,9 @@ export function DnsSettingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="rb-nav" aria-label="DNS settings views"><button type="button" aria-pressed={view==='records'} onClick={()=>setView('records')}>Records</button><button type="button" aria-pressed={view==='rebinding'} onClick={()=>setView('rebinding')}>Rebinding</button></div>
+      {view==='rebinding' ? <RebindingPanel key={session.token} token={session.token} subdomain={session.subdomain} active /> : <>
+      <p className="text-sm text-default-500">Enabled rebinding profiles override matching static address records. Configure them in the Rebinding view.</p>
       {/* Info */}
       <Card>
         <CardBody className="gap-2">
@@ -252,6 +257,7 @@ export function DnsSettingsPage() {
           )}
         </CardBody>
       </Card>
+      </>}
     </div>
   );
 }

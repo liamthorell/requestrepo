@@ -448,6 +448,8 @@ export function RequestsPage() {
             </tbody>
           </table>
 
+          {selectedRequest.rebinding && <div className="mb-4 text-sm" aria-label="Rebinding answer metadata"><strong>{selectedRequest.rebinding.profile_name}</strong> · revision {selectedRequest.rebinding.generation}<br/>Phases: {selectedRequest.rebinding.phase_ids.join(', ') || selectedRequest.rebinding.status} · {selectedRequest.rebinding.strategy}<br/>Resolver: {selectedRequest.ip} · {selectedRequest.rebinding.scope} · {selectedRequest.rebinding.committed ? 'Counter advanced' : 'Counter unchanged'}</div>}
+
           {/* Reply */}
           <h3 className="mb-2 text-sm font-semibold">Reply</h3>
           <Code className="block whitespace-pre-wrap p-2 text-xs font-mono mb-4 overflow-x-auto">
