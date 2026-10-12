@@ -85,7 +85,7 @@ fn build_admin_cookie(token: &str) -> String {
 }
 
 /// Extract token from query param or Authorization header
-fn extract_token(query: &TokenQuery, headers: &axum::http::HeaderMap) -> Option<String> {
+pub(super) fn extract_token(query: &TokenQuery, headers: &axum::http::HeaderMap) -> Option<String> {
     // Try query param first
     if let Some(token) = &query.token {
         return Some(token.clone());
@@ -104,7 +104,7 @@ fn extract_token(query: &TokenQuery, headers: &axum::http::HeaderMap) -> Option<
 }
 
 /// Verify token and return subdomain, or return error response
-fn verify_token_or_error(
+pub(super) fn verify_token_or_error(
     query: &TokenQuery,
     headers: &axum::http::HeaderMap,
 ) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
@@ -938,7 +938,12 @@ pub async fn release_session(
         data: "{}".to_string(),
     });
 
-    let released = names::release(&subdomain, &cid);
+    let released = match names::release_with_cleanup(&subdomain, &cid, || {
+        state.rebinding.clear_session(&subdomain)
+    }) {
+        Ok(released) => released,
+        Err(error) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(error)).into_response(),
+    };
     (StatusCode::OK, Json(json!({ "released": released }))).into_response()
 }
 

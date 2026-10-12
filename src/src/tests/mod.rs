@@ -10,3 +10,5 @@ mod utils_tests;
 mod rebinding_tests;
 
 mod rebinding_wire_tests;
+
+mod rebinding_api_tests;

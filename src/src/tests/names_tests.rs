@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::utils::config::CONFIG;
     use crate::utils::names::{self, ClaimError};
     use crate::utils::{
@@ -9,7 +9,7 @@ mod tests {
     use std::sync::Mutex;
 
     // The registry is process-wide; keep these tests from interleaving.
-    static LOCK: Mutex<()> = Mutex::new(());
+    pub(crate) static LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn validates_names() {

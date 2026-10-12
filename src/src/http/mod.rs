@@ -1,3 +1,4 @@
+mod rebinding_routes;
 mod routes;
 mod routes_v2;
 mod static_files;
@@ -185,7 +186,7 @@ impl Server {
 }
 
 /// Create the shared router with all routes
-fn create_router(state: AppState) -> Router {
+pub(crate) fn create_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods([
@@ -200,6 +201,22 @@ fn create_router(state: AppState) -> Router {
     // API routes - these need CORS for browser requests
     let api_routes = Router::new()
         .route("/health", get(routes::health))
+        .route(
+            "/api/v2/dns/rebinding",
+            get(rebinding_routes::get_rebinding).put(rebinding_routes::update_rebinding),
+        )
+        .route(
+            "/api/v2/dns/rebinding/preview",
+            post(rebinding_routes::preview_rebinding),
+        )
+        .route(
+            "/api/v2/dns/rebinding/:id/reset",
+            post(rebinding_routes::reset_rebinding),
+        )
+        .route(
+            "/api/v2/dns/rebinding/:id/phase",
+            post(rebinding_routes::select_rebinding_phase),
+        )
         .route(
             "/api/v2/sessions",
             post(routes_v2::create_session).delete(routes_v2::release_session),

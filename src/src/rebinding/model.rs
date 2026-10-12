@@ -191,3 +191,24 @@ pub struct ResolvedAnswer {
     pub wire: Vec<u8>,
     pub metadata: RebindingMetadata,
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreviewRequest {
+    pub profile: Profile,
+    pub query_type: String,
+    pub query_index: u64,
+    pub elapsed_ms: u64,
+    #[serde(default)]
+    pub random_slot: Option<u64>,
+    #[serde(default)]
+    pub manual_phase_id: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Probability {
+    pub phase_id: String,
+    pub probability: f64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreviewResponse {
+    pub selection: Selection,
+    pub probabilities: Vec<Probability>,
+}

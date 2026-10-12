@@ -156,13 +156,29 @@ pub fn claim(raw: &str, now: i64) -> Result<(String, String), ClaimError> {
 
 /// Release a claim, but only for the holder of the matching claim id.
 pub fn release(name: &str, id: &str) -> bool {
+    release_with_cleanup::<std::convert::Infallible>(name, id, || Ok(())).unwrap()
+}
+pub fn with_current_claim<T>(name: &str, id: &str, operation: impl FnOnce() -> T) -> Option<T> {
+    let map = REGISTRY.read().unwrap_or_else(|e| e.into_inner());
+    if map.get(name).is_some_and(|c| c.id == id) {
+        Some(operation())
+    } else {
+        None
+    }
+}
+pub fn release_with_cleanup<E>(
+    name: &str,
+    id: &str,
+    cleanup: impl FnOnce() -> Result<(), E>,
+) -> Result<bool, E> {
     let mut map = REGISTRY.write().unwrap_or_else(|e| e.into_inner());
     if map.get(name).is_some_and(|c| c.id == id) {
+        cleanup()?;
         map.remove(name);
         persist(&map);
-        true
+        Ok(true)
     } else {
-        false
+        Ok(false)
     }
 }
 
