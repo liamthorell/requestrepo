@@ -6,7 +6,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 use std::time::Duration as StdDuration;
 use tokio::sync::broadcast;
 use tokio::time::sleep;
@@ -44,6 +44,8 @@ pub struct Cache {
     // Key-value store for session data (files, DNS records)
     // Keys: files:{subdomain}, dns:{subdomain}, dns:{type}:{domain}
     kv_store: RwLock<HashMap<String, KvEntry>>,
+    quota_lock: Mutex<()>,
+    external_usage: Mutex<HashMap<String, (String, usize)>>,
 
     // Request logs per subdomain - LRU evicted under memory pressure
     // LinkedHashMap maintains insertion order for LRU
@@ -76,6 +78,8 @@ impl Cache {
 
         Self {
             kv_store: RwLock::new(HashMap::new()),
+            quota_lock: Mutex::new(()),
+            external_usage: Mutex::new(HashMap::new()),
             request_store: RwLock::new(LinkedHashMap::new()),
             request_index: RwLock::new(HashMap::new()),
             subdomain_sizes: RwLock::new(HashMap::new()),
@@ -117,10 +121,15 @@ impl Cache {
     /// Set a key-value pair (for files, DNS records)
     /// Enforces per-subdomain size limits for session data
     pub async fn set(&self, key: &str, value: &str) -> Result<()> {
+        let subdomain = extract_subdomain_from_key(key);
+        let _quota = self
+            .quota_lock
+            .lock()
+            .map_err(|_| anyhow!("Quota lock error"))?;
         let uncompressed_size = value.len();
 
         // Check per-subdomain limit for session data (files:*, dns:*)
-        if let Some(subdomain) = extract_subdomain_from_key(key) {
+        if let Some(subdomain) = subdomain.as_ref() {
             let current_size = self.get_subdomain_size(&subdomain);
             // Subtract old entry size if replacing an existing key
             let old_size = self
@@ -149,11 +158,22 @@ impl Cache {
         // Update memory tracking
         let mut store = self.kv_store.write().map_err(|_| anyhow!("Lock error"))?;
 
+        let old_compressed = store.get(key).map(|entry| entry.data.len()).unwrap_or(0);
+        if self
+            .current_memory
+            .load(Ordering::Relaxed)
+            .saturating_sub(old_compressed)
+            .saturating_add(compressed_size)
+            > self.max_memory.load(Ordering::Relaxed)
+        {
+            return Err(anyhow!("Process memory limit exceeded"));
+        }
+
         // If key exists, subtract old size
         if let Some(old_entry) = store.get(key) {
             self.current_memory
                 .fetch_sub(old_entry.data.len(), Ordering::Relaxed);
-            if let Some(subdomain) = extract_subdomain_from_key(key) {
+            if let Some(subdomain) = subdomain.as_ref() {
                 self.update_subdomain_size(&subdomain, -(old_entry.uncompressed_size as isize));
             }
         }
@@ -169,10 +189,66 @@ impl Cache {
 
         self.current_memory
             .fetch_add(compressed_size, Ordering::Relaxed);
-        if let Some(subdomain) = extract_subdomain_from_key(key) {
+        if let Some(subdomain) = subdomain.as_ref() {
             self.update_subdomain_size(&subdomain, uncompressed_size as isize);
         }
 
+        Ok(())
+    }
+
+    pub fn replace_external_usage(&self, key: &str, session: &str, bytes: usize) -> Result<()> {
+        let _quota = self
+            .quota_lock
+            .lock()
+            .map_err(|_| anyhow!("Quota lock error"))?;
+        let mut usage = self
+            .external_usage
+            .lock()
+            .map_err(|_| anyhow!("Usage lock error"))?;
+        let old = usage.get(key).map(|(_, n)| *n).unwrap_or(0);
+        if bytes > old
+            && self
+                .get_subdomain_size(session)
+                .saturating_sub(old)
+                .saturating_add(bytes)
+                > CONFIG.max_subdomain_size_bytes
+        {
+            return Err(anyhow!("Session memory limit exceeded"));
+        }
+        if bytes > old
+            && self
+                .current_memory
+                .load(Ordering::Relaxed)
+                .saturating_sub(old)
+                .saturating_add(bytes)
+                > self.max_memory.load(Ordering::Relaxed)
+        {
+            return Err(anyhow!("Process memory limit exceeded"));
+        }
+        if bytes >= old {
+            self.current_memory
+                .fetch_add(bytes - old, Ordering::Relaxed);
+        } else {
+            self.current_memory
+                .fetch_sub(old - bytes, Ordering::Relaxed);
+        }
+        self.update_subdomain_size(session, bytes as isize - old as isize);
+        usage.insert(key.into(), (session.into(), bytes));
+        Ok(())
+    }
+    pub fn release_external_usage(&self, key: &str) -> Result<()> {
+        let _quota = self
+            .quota_lock
+            .lock()
+            .map_err(|_| anyhow!("Quota lock error"))?;
+        let mut usage = self
+            .external_usage
+            .lock()
+            .map_err(|_| anyhow!("Usage lock error"))?;
+        if let Some((session, bytes)) = usage.remove(key) {
+            self.current_memory.fetch_sub(bytes, Ordering::Relaxed);
+            self.update_subdomain_size(&session, -(bytes as isize));
+        }
         Ok(())
     }
 
@@ -192,13 +268,18 @@ impl Cache {
 
     /// Delete a key
     pub async fn delete(&self, key: &str) -> Result<bool> {
+        let subdomain = extract_subdomain_from_key(key);
+        let _quota = self
+            .quota_lock
+            .lock()
+            .map_err(|_| anyhow!("Quota lock error"))?;
         // Try kv_store first
         {
             let mut store = self.kv_store.write().map_err(|_| anyhow!("Lock error"))?;
             if let Some(entry) = store.remove(key) {
                 self.current_memory
                     .fetch_sub(entry.data.len(), Ordering::Relaxed);
-                if let Some(subdomain) = extract_subdomain_from_key(key) {
+                if let Some(subdomain) = subdomain.as_ref() {
                     self.update_subdomain_size(&subdomain, -(entry.uncompressed_size as isize));
                 }
                 return Ok(true);
@@ -486,6 +567,8 @@ impl Clone for Cache {
         // This is intentional - use Arc<Cache> to share actual data
         Self {
             kv_store: RwLock::new(HashMap::new()),
+            quota_lock: Mutex::new(()),
+            external_usage: Mutex::new(HashMap::new()),
             request_store: RwLock::new(LinkedHashMap::new()),
             request_index: RwLock::new(HashMap::new()),
             subdomain_sizes: RwLock::new(HashMap::new()),

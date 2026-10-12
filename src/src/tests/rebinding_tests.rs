@@ -205,3 +205,297 @@ fn rebinding_matching_is_exact_scoped_and_case_insensitive() {
             .suppressed
     );
 }
+
+use crate::cache::Cache;
+use crate::rebinding::{LookupContext, PhaseRequest, RenderedAnswer, Store, UpdateRequest};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+fn lookup(host: &str, kind: &str, ip: &str) -> LookupContext {
+    LookupContext {
+        session: "abcdefgh".into(),
+        relative_name: host.into(),
+        query_type: kind.into(),
+        resolver_ip: ip.parse().unwrap(),
+    }
+}
+fn render(
+    s: &crate::rebinding::Selection,
+) -> Result<RenderedAnswer, crate::rebinding::RebindingError> {
+    Ok(RenderedAnswer {
+        wire: s.values.join(",").into_bytes(),
+        truncated: false,
+    })
+}
+fn configured(p: Profile) -> Store {
+    let store = Store::new(Arc::new(Cache::new()));
+    store
+        .replace(
+            "abcdefgh",
+            UpdateRequest {
+                expected_generation: 0,
+                profiles: vec![p],
+            },
+        )
+        .unwrap();
+    store
+}
+#[test]
+fn rebinding_store_atomic_counts_and_scopes() {
+    let mut p = profile(3);
+    p.phases[0].query_count = 10;
+    let store = Arc::new(configured(p));
+    let now = Instant::now();
+    let handles = (0..100)
+        .map(|_| {
+            let store = store.clone();
+            std::thread::spawn(move || {
+                store
+                    .answer(&lookup("rebind", "A", "192.0.2.1"), now, |_| 0, render)
+                    .unwrap()
+                    .unwrap()
+                    .wire
+            })
+        })
+        .collect::<Vec<_>>();
+    let answers = handles
+        .into_iter()
+        .map(|h| h.join().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        answers
+            .iter()
+            .filter(|x| x.as_slice() == b"192.0.2.1")
+            .count(),
+        10
+    );
+    assert_eq!(store.snapshot("abcdefgh").status[0].queries, 100);
+    let mut p = profile(3);
+    p.hostname = "*".into();
+    p.scope = crate::rebinding::Scope::Resolver;
+    let store = configured(p);
+    let answer = |host, ip| {
+        store
+            .answer(&lookup(host, "A", ip), now, |_| 0, render)
+            .unwrap()
+            .unwrap()
+            .wire
+    };
+    assert_eq!(answer("one", "192.0.2.1"), b"192.0.2.1");
+    assert_eq!(answer("one", "192.0.2.2"), b"192.0.2.1");
+    assert_eq!(answer("one", "192.0.2.1"), b"192.0.2.2");
+    assert_eq!(answer("two", "192.0.2.1"), b"192.0.2.1");
+}
+#[test]
+fn rebinding_truncation_and_errors_do_not_commit() {
+    let store = configured(profile(3));
+    let now = Instant::now();
+    let l = lookup("rebind", "A", "192.0.2.1");
+    let reply = store
+        .answer(
+            &l,
+            now,
+            |_| 0,
+            |_| {
+                Ok(RenderedAnswer {
+                    wire: vec![],
+                    truncated: true,
+                })
+            },
+        )
+        .unwrap()
+        .unwrap();
+    assert!(!reply.metadata.committed);
+    assert_eq!(store.snapshot("abcdefgh").capacity.session_used, 0);
+    assert!(store
+        .answer(
+            &l,
+            now,
+            |_| 0,
+            |_| Err(crate::rebinding::RebindingError::new("render", "failed"))
+        )
+        .is_err());
+    assert_eq!(
+        store.answer(&l, now, |_| 0, render).unwrap().unwrap().wire,
+        b"192.0.2.1"
+    );
+    let suppressed = store
+        .answer(&lookup("rebind", "AAAA", "192.0.2.1"), now, |_| 0, render)
+        .unwrap()
+        .unwrap();
+    assert!(!suppressed.metadata.committed);
+    assert_eq!(store.snapshot("abcdefgh").status[0].queries, 1);
+}
+#[test]
+fn rebinding_generation_manual_reset_and_timing() {
+    let mut p = profile(3);
+    p.strategy = crate::rebinding::Strategy::Timed;
+    let store = configured(p);
+    let now = Instant::now();
+    let l = lookup("rebind", "A", "192.0.2.1");
+    assert_eq!(
+        store.answer(&l, now, |_| 0, render).unwrap().unwrap().wire,
+        b"192.0.2.1"
+    );
+    assert_eq!(
+        store
+            .answer(&l, now + Duration::from_millis(10), |_| 0, render)
+            .unwrap()
+            .unwrap()
+            .wire,
+        b"192.0.2.2"
+    );
+    assert!(store
+        .replace(
+            "abcdefgh",
+            UpdateRequest {
+                expected_generation: 0,
+                profiles: vec![]
+            }
+        )
+        .is_err());
+    assert_eq!(store.reset("abcdefgh", "test", 1).unwrap().generation, 2);
+    assert_eq!(store.snapshot("abcdefgh").capacity.session_used, 0);
+    let mut p = profile(10);
+    p.strategy = crate::rebinding::Strategy::Manual;
+    store
+        .replace(
+            "abcdefgh",
+            UpdateRequest {
+                expected_generation: 2,
+                profiles: vec![p],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        store
+            .set_phase(
+                "abcdefgh",
+                "test",
+                PhaseRequest {
+                    expected_generation: 3,
+                    phase_id: "p8".into()
+                }
+            )
+            .unwrap()
+            .generation,
+        4
+    );
+    assert_eq!(
+        store.answer(&l, now, |_| 0, render).unwrap().unwrap().wire,
+        b"192.0.2.9"
+    );
+    store.clear_session("abcdefgh").unwrap();
+    assert!(store.snapshot("abcdefgh").profiles.is_empty());
+}
+#[test]
+fn rebinding_capacity_preserves_existing_keys() {
+    let mut p = profile(1);
+    p.hostname = "*".into();
+    let store = configured(p);
+    let now = Instant::now();
+    for i in 0..1024 {
+        assert!(store
+            .answer(
+                &lookup(&format!("host{i}"), "A", "192.0.2.1"),
+                now,
+                |_| 0,
+                render
+            )
+            .unwrap()
+            .is_some());
+    }
+    let capacity = store
+        .answer(&lookup("overflow", "A", "192.0.2.1"), now, |_| 0, render)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        capacity.metadata.status,
+        crate::rebinding::SelectionStatus::Capacity
+    );
+    assert!(!capacity.metadata.committed);
+    assert_eq!(
+        store
+            .answer(&lookup("host0", "A", "192.0.2.1"), now, |_| 0, render)
+            .unwrap()
+            .unwrap()
+            .wire,
+        b"192.0.2.1"
+    );
+}
+#[test]
+fn rebinding_failed_random_selection_releases_reservation() {
+    let cache = Arc::new(Cache::new());
+    let store = Store::new(cache.clone());
+    let mut p = profile(3);
+    p.strategy = crate::rebinding::Strategy::Random;
+    store
+        .replace(
+            "abcdefgh",
+            UpdateRequest {
+                expected_generation: 0,
+                profiles: vec![p],
+            },
+        )
+        .unwrap();
+    let before = cache.stats().memory_used_bytes;
+    assert!(store
+        .answer(
+            &lookup("rebind", "A", "192.0.2.1"),
+            Instant::now(),
+            |_| 99,
+            render
+        )
+        .is_err());
+    assert_eq!(cache.stats().memory_used_bytes, before);
+}
+#[test]
+fn rebinding_status_reports_most_recent_answer_not_newest_clock() {
+    let mut p = profile(3);
+    p.hostname = "*".into();
+    let store = configured(p);
+    let now = Instant::now();
+    store
+        .answer(&lookup("one", "A", "192.0.2.1"), now, |_| 0, render)
+        .unwrap();
+    store
+        .answer(
+            &lookup("two", "A", "192.0.2.1"),
+            now + Duration::from_millis(1),
+            |_| 0,
+            render,
+        )
+        .unwrap();
+    store
+        .answer(
+            &lookup("one", "A", "192.0.2.1"),
+            now + Duration::from_millis(2),
+            |_| 0,
+            render,
+        )
+        .unwrap();
+    assert_eq!(store.snapshot("abcdefgh").status[0].last_phase_ids, ["p1"]);
+}
+#[test]
+fn rebinding_quota_failure_preserves_configuration_and_accounting() {
+    let cache = Arc::new(Cache::new());
+    let store = Store::new(cache.clone());
+    store
+        .replace(
+            "abcdefgh",
+            UpdateRequest {
+                expected_generation: 0,
+                profiles: vec![profile(1)],
+            },
+        )
+        .unwrap();
+    let before = cache.stats().memory_used_bytes;
+    assert!(cache
+        .replace_external_usage("too-large", "abcdefgh", usize::MAX)
+        .is_err());
+    assert_eq!(cache.stats().memory_used_bytes, before);
+    assert_eq!(store.snapshot("abcdefgh").generation, 1);
+    store.clear_session("abcdefgh").unwrap();
+    assert_eq!(cache.stats().memory_used_bytes, 0);
+}
