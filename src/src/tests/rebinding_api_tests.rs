@@ -196,7 +196,7 @@ async fn rebinding_api_released_claim_does_not_reuse_configuration() {
     let _guard = crate::tests::names_tests::tests::LOCK.lock().unwrap();
     let app = app().await;
     let (name, cid) = crate::utils::names::claim("rebind-qa", 1).unwrap();
-    let old = generate_session_jwt(&name, Some(&cid)).unwrap();
+    let old = generate_session_jwt(&name, Some(cid.clone())).unwrap();
     let path = "/api/v2/dns/rebinding";
     assert_eq!(
         call(
@@ -217,7 +217,7 @@ async fn rebinding_api_released_claim_does_not_reuse_configuration() {
         true
     );
     let (_, cid2) = crate::utils::names::claim(&name, 2).unwrap();
-    let new = generate_session_jwt(&name, Some(&cid2)).unwrap();
+    let new = generate_session_jwt(&name, Some(cid2.clone())).unwrap();
     assert_eq!(
         call(
             &app,
