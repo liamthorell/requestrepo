@@ -218,3 +218,57 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 ## License
 
 If you find this project useful, please consider giving it a star on GitHub.
+
+### DNS rebinding profiles (KebabReq)
+
+Open **DNS → Rebinding** to create a profile from a preset. A profile can contain
+up to 128 ordered phases / address values, and a session can have 16 profiles.
+Use bulk entry to turn newline/comma-separated IPs into individual phases or one
+answer set; reorder phases with the arrow buttons. A, AAAA and CNAME are supported.
+
+- **Switch after N queries:** each phase serves its configured number of qualifying
+  queries, then advances; hold the last phase or repeat the complete sequence.
+- **Switch after a delay:** each phase has a duration, starting at the first matching
+  query. Hold the final phase or repeat the duration cycle.
+- **Round robin:** rotate through every phase; phase query counts control dwell time.
+- **Weighted random:** select across all phases using the configured weights.
+- **Multiple addresses:** return the deduplicated address list in one answer with a
+  common TTL. The resolver/client can reorder addresses or choose any destination.
+- **Manual:** directly select any applied phase in the Live profile controls.
+
+For example, three phases containing `79.76.62.80`, `127.0.0.1`, and `10.0.0.1`
+with count 1 and hold behavior return those addresses for queries 1, 2, and 3;
+subsequent queries keep returning `10.0.0.1`. Any phase can also contain several
+addresses returned together. TTLs and negative-answer TTLs accept 0–86400 seconds.
+
+`@` matches the session hostname; `*` matches names beneath it, excluding `@`.
+Exact enabled profiles win over wildcards and override matching static address
+records. CNAME profiles cannot overlap enabled address profiles. Certificate
+challenge names and unrelated record types bypass rebinding.
+
+Counter scope is per hostname/query type by default, optionally per resolver IP,
+or shared across a profile/query type. A and AAAA counters are independent.
+The resolver IP is not the browser's IP. Qualifying authoritative responses include
+retransmissions; truncated UDP replies do not advance counters or start clocks,
+so a TCP retry can receive the same phase. Inspect actual replies and phase metadata
+in the capture history. Capacity is limited to 1024 state keys/session and 65536
+server-wide, additionally subject to existing memory quotas; reset frees state keys.
+
+Use **Simulate answer** for a draft-only preview: query index 0 means the first
+answer, and simulations never affect live counters. **Save profiles** applies the
+configuration and resets counters/clocks. **Reset profile** retains the configuration.
+Generation conflicts preserve your draft; reload applied settings before retrying.
+Use **Export JSON / Import JSON** to keep settings: captures, configuration and
+runtime state remain in memory and disappear on restart. Exports contain no tokens.
+
+For a profile hostname `rebind.SESSION.req.havet.dev`, query the authoritative DNS
+server directly to inspect TTLs and answers:
+
+```sh
+dig @ns1.havet.dev rebind.SESSION.req.havet.dev A +noall +answer
+dig @ns1.havet.dev rebind.SESSION.req.havet.dev A +tcp +noall +answer
+```
+
+Low TTLs do not clear browser/resolver caches or guarantee another lookup. DNS
+rebinding protection, connection reuse, HTTPS certificates, and browser network
+restrictions can still affect the experiment.
