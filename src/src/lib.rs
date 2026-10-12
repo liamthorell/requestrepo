@@ -42,7 +42,8 @@ pub async fn run() -> Result<()> {
     // Load static frontend files into memory (shared between HTTP and HTTPS)
     let static_files = http::load_static_files().await;
 
-    let dns_server = dns::Server::new(cache.clone(), tx.clone());
+    let rebinding = Arc::new(rebinding::Store::new(cache.clone()));
+    let dns_server = dns::Server::new(cache.clone(), rebinding.clone(), tx.clone());
     let dns_handle = tokio::spawn(async move {
         if let Err(e) = dns_server.run().await {
             error!("DNS server error: {}", e);
@@ -59,6 +60,7 @@ pub async fn run() -> Result<()> {
     // HTTP server starts first — must be ready to serve ACME challenges before CertManager fires
     let http_server = http::Server::new(
         cache.clone(),
+        rebinding.clone(),
         tx.clone(),
         static_files.clone(),
         http_challenge_handler.clone(),
@@ -97,6 +99,7 @@ pub async fn run() -> Result<()> {
                 // Start HTTPS server
                 let https_server = http::HttpsServer::new(
                     cache.clone(),
+                    rebinding.clone(),
                     tx.clone(),
                     cert_manager.tls_manager(),
                     static_files.clone(),

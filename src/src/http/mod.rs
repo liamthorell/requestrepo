@@ -120,6 +120,7 @@ async fn sanitize_sentry_context(request: Request, next: Next) -> Response {
 
 pub struct Server {
     cache: Arc<Cache>,
+    rebinding: Arc<crate::rebinding::Store>,
     tx: Arc<broadcast::Sender<CacheMessage>>,
     static_files: Arc<StaticFiles>,
     http_challenge_handler: Option<HttpChallengeHandler>,
@@ -128,6 +129,7 @@ pub struct Server {
 #[derive(Clone)]
 pub struct AppState {
     pub cache: Arc<Cache>,
+    pub rebinding: Arc<crate::rebinding::Store>,
     pub tx: Arc<broadcast::Sender<CacheMessage>>,
     pub static_files: Arc<StaticFiles>,
     pub http_challenge_handler: Option<HttpChallengeHandler>,
@@ -141,12 +143,14 @@ pub async fn load_static_files() -> Arc<StaticFiles> {
 impl Server {
     pub fn new(
         cache: Arc<Cache>,
+        rebinding: Arc<crate::rebinding::Store>,
         tx: Arc<broadcast::Sender<CacheMessage>>,
         static_files: Arc<StaticFiles>,
         http_challenge_handler: Option<HttpChallengeHandler>,
     ) -> Self {
         Self {
             cache,
+            rebinding,
             tx,
             static_files,
             http_challenge_handler,
@@ -158,6 +162,7 @@ impl Server {
 
         let state = AppState {
             cache: self.cache.clone(),
+            rebinding: self.rebinding.clone(),
             tx: self.tx.clone(),
             static_files: self.static_files.clone(),
             http_challenge_handler: self.http_challenge_handler.clone(),
@@ -261,6 +266,7 @@ async fn acme_challenge_handler(
 /// HTTPS server that runs alongside the HTTP server
 pub struct HttpsServer {
     cache: Arc<Cache>,
+    rebinding: Arc<crate::rebinding::Store>,
     tx: Arc<broadcast::Sender<CacheMessage>>,
     tls: TlsManager,
     static_files: Arc<StaticFiles>,
@@ -270,6 +276,7 @@ pub struct HttpsServer {
 impl HttpsServer {
     pub fn new(
         cache: Arc<Cache>,
+        rebinding: Arc<crate::rebinding::Store>,
         tx: Arc<broadcast::Sender<CacheMessage>>,
         tls: TlsManager,
         static_files: Arc<StaticFiles>,
@@ -277,6 +284,7 @@ impl HttpsServer {
     ) -> Self {
         Self {
             cache,
+            rebinding,
             tx,
             tls,
             static_files,
@@ -344,6 +352,7 @@ impl HttpsServer {
             // Clone state for the spawned task
             let state = AppState {
                 cache: self.cache.clone(),
+                rebinding: self.rebinding.clone(),
                 tx: self.tx.clone(),
                 static_files: self.static_files.clone(),
                 http_challenge_handler: self.http_challenge_handler.clone(),

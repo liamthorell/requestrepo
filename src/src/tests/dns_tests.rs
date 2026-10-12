@@ -176,9 +176,16 @@ mod tests {
 
         // DS query for the apex (localhost is the default test domain)
         let query = build_query("localhost.", RecordType::DS);
-        let bytes = crate::dns::process_dns_query(&query, test_addr(), cache, Arc::new(tx), false)
-            .await
-            .unwrap();
+        let bytes = crate::dns::process_dns_query(
+            &query,
+            test_addr(),
+            cache.clone(),
+            Arc::new(tx),
+            false,
+            Arc::new(crate::rebinding::Store::new(cache)),
+        )
+        .await
+        .unwrap();
 
         let resp = Message::from_bytes(&bytes).unwrap();
         assert_eq!(resp.metadata.response_code, ResponseCode::NoError);
@@ -201,6 +208,7 @@ mod tests {
                 cache.clone(),
                 Arc::new(tx.clone()),
                 false,
+                Arc::new(crate::rebinding::Store::new(cache.clone())),
             )
             .await
             .unwrap();
@@ -231,9 +239,16 @@ mod tests {
         let tx2 = Arc::new(tx);
         tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
-            crate::dns::handle_tcp_connection(stream, peer, cache, tx2, rate_limiter)
-                .await
-                .ok();
+            crate::dns::handle_tcp_connection(
+                stream,
+                peer,
+                cache.clone(),
+                tx2,
+                rate_limiter,
+                Arc::new(crate::rebinding::Store::new(cache)),
+            )
+            .await
+            .ok();
         });
 
         // Client: send a length-prefixed A query

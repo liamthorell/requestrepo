@@ -8,3 +8,5 @@ mod names_tests;
 mod utils_tests;
 
 mod rebinding_tests;
+
+mod rebinding_wire_tests;

@@ -33,6 +33,8 @@ pub struct DnsRequestLog {
     pub port: Option<u16>,
     pub country: Option<String>,
     pub reply: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rebinding: Option<crate::rebinding::RebindingMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

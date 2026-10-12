@@ -1,10 +1,14 @@
+use crate::rebinding::{
+    AnswerKind, LookupContext, RebindingError, RebindingMetadata, RenderedAnswer, Selection,
+    SelectionStatus, Store,
+};
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use hickory_proto::op::{Message, Query, ResponseCode};
 use hickory_proto::rr::rdata::{CNAME, MX, NS, SOA, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
@@ -82,12 +86,21 @@ impl DnsRateLimiter {
 
 pub struct Server {
     cache: Arc<Cache>,
+    rebinding: Arc<Store>,
     tx: Arc<broadcast::Sender<CacheMessage>>,
 }
 
 impl Server {
-    pub fn new(cache: Arc<Cache>, tx: Arc<broadcast::Sender<CacheMessage>>) -> Self {
-        Self { cache, tx }
+    pub fn new(
+        cache: Arc<Cache>,
+        rebinding: Arc<Store>,
+        tx: Arc<broadcast::Sender<CacheMessage>>,
+    ) -> Self {
+        Self {
+            cache,
+            rebinding,
+            tx,
+        }
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -130,12 +143,13 @@ impl Server {
 
                     let data = buf[..len].to_vec();
                     let cache = self.cache.clone();
+                    let rebinding = self.rebinding.clone();
                     let tx = self.tx.clone();
                     let socket_clone = socket.clone();
 
                     // Spawn a task to handle the request
                     tokio::spawn(async move {
-                        match process_dns_query(&data, addr, cache, tx, true).await {
+                        match process_dns_query(&data, addr, cache, tx, true, rebinding).await {
                             Ok(response_bytes) => {
                                 if let Err(e) = socket_clone.send_to(&response_bytes, addr).await {
                                     error!("Error sending UDP DNS response: {}", e);
@@ -165,12 +179,14 @@ impl Server {
                         Err(_) => continue,
                     };
                     let cache = self.cache.clone();
+                    let rebinding = self.rebinding.clone();
                     let tx = self.tx.clone();
                     let rate_limiter = rate_limiter.clone();
                     tokio::spawn(async move {
                         let _connection_permit = connection_permit;
                         if let Err(e) =
-                            handle_tcp_connection(stream, addr, cache, tx, rate_limiter).await
+                            handle_tcp_connection(stream, addr, cache, tx, rate_limiter, rebinding)
+                                .await
                         {
                             // Connection-level errors (resets, timeouts) are expected; log at debug
                             tracing::debug!("DNS TCP connection from {} ended: {}", addr, e);
@@ -200,6 +216,7 @@ pub(crate) async fn handle_tcp_connection(
     cache: Arc<Cache>,
     tx: Arc<broadcast::Sender<CacheMessage>>,
     rate_limiter: Arc<DnsRateLimiter>,
+    rebinding: Arc<Store>,
 ) -> Result<()> {
     loop {
         // Read the 2-byte length prefix, bounded by an idle timeout so half-open
@@ -233,8 +250,15 @@ pub(crate) async fn handle_tcp_connection(
         }
 
         // No 512-byte truncation over TCP
-        let response_bytes =
-            process_dns_query(&msg, addr, cache.clone(), tx.clone(), false).await?;
+        let response_bytes = process_dns_query(
+            &msg,
+            addr,
+            cache.clone(),
+            tx.clone(),
+            false,
+            rebinding.clone(),
+        )
+        .await?;
 
         // Write the 2-byte length prefix followed by the response
         let out_len = u16::try_from(response_bytes.len())
@@ -262,6 +286,7 @@ pub(crate) async fn process_dns_query(
     cache: Arc<Cache>,
     tx: Arc<broadcast::Sender<CacheMessage>>,
     truncate_udp: bool,
+    rebinding: Arc<Store>,
 ) -> Result<Vec<u8>> {
     let request =
         Message::from_bytes(data).map_err(|e| anyhow!("Failed to parse DNS request: {e}"))?;
@@ -287,37 +312,60 @@ pub(crate) async fn process_dns_query(
     // Extract subdomain from hostname
     let subdomain = get_subdomain_from_hostname(&name);
 
-    // Build response first so we can include it in the log
-    let response = build_dns_response(&request, query, &subdomain, &cache).await?;
-
-    // Format the response for logging
+    let rebound = if is_our_domain(&name) {
+        if let Some(session) = &subdomain {
+            let owner = format!("{}.{}", session, CONFIG.server_domain.trim_end_matches('.'))
+                .to_ascii_lowercase();
+            let qname = name.trim_end_matches('.').to_ascii_lowercase();
+            let relative = if qname == owner {
+                Some("@".to_string())
+            } else {
+                qname.strip_suffix(&format!(".{owner}")).map(str::to_string)
+            };
+            if let Some(relative_name) = relative {
+                rebinding
+                    .answer(
+                        &LookupContext {
+                            session: session.clone(),
+                            relative_name,
+                            query_type: format!("{:?}", query.query_type()),
+                            resolver_ip: addr.ip(),
+                        },
+                        Instant::now(),
+                        |total| rand::thread_rng().gen_range(0..total),
+                        |selection| render_rebinding(&request, query, selection, truncate_udp),
+                    )
+                    .map_err(|e| anyhow!(e))?
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let (response_bytes, metadata) = if let Some(rebound) = rebound {
+        (rebound.wire, Some(rebound.metadata))
+    } else {
+        let response = build_dns_response(&request, query, &subdomain, &cache).await?;
+        let bytes = response.to_bytes().map_err(|e| anyhow!(e))?;
+        let bytes = if truncate_udp && bytes.len() > MAX_UDP_RESPONSE_SIZE {
+            response.truncate().to_bytes().map_err(|e| anyhow!(e))?
+        } else {
+            bytes
+        };
+        (bytes, None)
+    };
+    let response = Message::from_bytes(&response_bytes).map_err(|e| anyhow!(e))?;
     let reply = format_dns_response(&response);
-
-    // Log the DNS request if we have a valid subdomain
-    if let Some(ref subdomain) = subdomain {
-        if let Err(e) = log_dns_request(&request, data, addr, subdomain, &reply, &cache, &tx).await
+    if let Some(ref session) = subdomain {
+        if let Err(e) =
+            log_dns_request(&request, data, addr, session, &reply, metadata, &cache, &tx).await
         {
             error!("Failed to log DNS request: {}", e);
         }
     }
-
-    // Serialize and send response
-    let response_bytes = response
-        .to_bytes()
-        .map_err(|e| anyhow!("Failed to serialize DNS response: {e}"))?;
-
-    // On UDP, if the response exceeds 512 bytes set the TC (truncation) bit and
-    // strip answers so the client retries via TCP (which is not spoofable). TCP
-    // has no such limit, so callers there pass `truncate_udp = false`.
-    let response_bytes = if truncate_udp && response_bytes.len() > MAX_UDP_RESPONSE_SIZE {
-        // Remove all response sections and set TC, retaining the header and question.
-        let truncated = response.truncate();
-        truncated
-            .to_bytes()
-            .map_err(|e| anyhow!("Failed to serialize truncated DNS response: {e}"))?
-    } else {
-        response_bytes
-    };
 
     Ok(response_bytes)
 }
@@ -403,6 +451,7 @@ async fn log_dns_request(
     addr: SocketAddr,
     subdomain: &str,
     reply: &str,
+    rebinding: Option<RebindingMetadata>,
     cache: &Arc<Cache>,
     tx: &Arc<broadcast::Sender<CacheMessage>>,
 ) -> Result<()> {
@@ -429,6 +478,7 @@ async fn log_dns_request(
         port: Some(addr.port()),
         country,
         reply: Some(reply.to_string()),
+        rebinding,
     };
 
     let request_json = serde_json::to_string(&request_log)?;
@@ -479,6 +529,10 @@ fn primary_ns() -> String {
 /// to populate the authority section of negative (NODATA / NXDOMAIN) responses so
 /// resolvers get a proper negative-cache TTL instead of hammering us.
 fn build_soa() -> Option<Record> {
+    build_soa_with_ttl(60)
+}
+
+fn build_soa_with_ttl(ttl: u32) -> Option<Record> {
     let mname = Name::from_str(&primary_ns()).ok()?;
     let rname = Name::from_str(&format!(
         "hostmaster.{}",
@@ -487,8 +541,8 @@ fn build_soa() -> Option<Record> {
     .ok()?;
     let apex = Name::from_str(&zone_apex()).ok()?;
     // serial, refresh, retry, expire, minimum(=negative-cache TTL)
-    let soa = SOA::new(mname, rname, 1, 3600, 600, 604_800, 60);
-    Some(Record::from_rdata(apex, 60, RData::SOA(soa)))
+    let soa = SOA::new(mname, rname, 1, 3600, 600, 604_800, ttl);
+    Some(Record::from_rdata(apex, ttl, RData::SOA(soa)))
 }
 
 /// Check if the query is for our domain (including base domain and subdomains)
@@ -717,4 +771,63 @@ async fn build_dns_response(
     }
 
     Ok(response)
+}
+
+fn render_rebinding(
+    request: &Message,
+    query: &Query,
+    selection: &Selection,
+    udp: bool,
+) -> Result<RenderedAnswer, RebindingError> {
+    let mut response = Message::response(request.metadata.id, request.metadata.op_code);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.authoritative = true;
+    response.add_query(query.clone());
+    match selection.status {
+        SelectionStatus::Capacity => response.metadata.response_code = ResponseCode::ServFail,
+        SelectionStatus::Suppressed => {
+            if let Some(soa) = build_soa_with_ttl(selection.ttl) {
+                response.add_authority(soa);
+            }
+        }
+        SelectionStatus::Answer => {
+            for value in &selection.values {
+                let data = match selection.answer_kind {
+                    AnswerKind::A => RData::A(
+                        value
+                            .parse::<Ipv4Addr>()
+                            .map_err(|e| RebindingError::new("invalid_rebinding", e.to_string()))?
+                            .into(),
+                    ),
+                    AnswerKind::AAAA => RData::AAAA(
+                        value
+                            .parse::<Ipv6Addr>()
+                            .map_err(|e| RebindingError::new("invalid_rebinding", e.to_string()))?
+                            .into(),
+                    ),
+                    AnswerKind::CNAME => {
+                        RData::CNAME(CNAME(Name::from_str(value).map_err(|e| {
+                            RebindingError::new("invalid_rebinding", e.to_string())
+                        })?))
+                    }
+                };
+                response.add_answer(Record::from_rdata(
+                    query.name().clone(),
+                    selection.ttl,
+                    data,
+                ));
+            }
+        }
+    }
+    let mut wire = response
+        .to_bytes()
+        .map_err(|e| RebindingError::new("serialization", e.to_string()))?;
+    let truncated = udp && wire.len() > MAX_UDP_RESPONSE_SIZE;
+    if truncated {
+        wire = response
+            .truncate()
+            .to_bytes()
+            .map_err(|e| RebindingError::new("serialization", e.to_string()))?;
+    }
+    Ok(RenderedAnswer { wire, truncated })
 }
