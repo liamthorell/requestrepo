@@ -16,9 +16,16 @@ export function useRebinding(token:string,active:boolean){
  const draft=draftState.dirty||!query.data?draftState:{profiles:query.data.profiles,generation:query.data.generation,dirty:false};
  function clearPreview(){previewAbort.current?.abort();setPreview(null);setPreviewBusy(false);}
  function change(profiles:Profile[]){clearPreview();const next={...draft,profiles,dirty:true};drafts.set(token,next);setDraftState(next);setErrors([]);setMessage('');}
- const apply=useCallback((snapshot:Snapshot)=>{queryClient.setQueryData(['rebinding',token],snapshot);const next={profiles:snapshot.profiles,generation:snapshot.generation,dirty:false};drafts.set(token,next);if(mounted.current){setDraftState(next);setErrors([]);setMessage('Configuration applied. Counters have been reset where the action requires it.');setPreview(null);}},[token,queryClient]);
+ const apply=useCallback((snapshot:Snapshot,submitted?:Draft)=>{
+  queryClient.setQueryData(['rebinding',token],snapshot);
+  const latest=drafts.get(token);
+  const preserve=Boolean(submitted&&latest&&latest!==submitted&&latest.dirty);
+  const next:Draft=preserve?{...latest!,generation:snapshot.generation}:{profiles:snapshot.profiles,generation:snapshot.generation,dirty:false};
+  drafts.set(token,next);
+  if(mounted.current){setDraftState(next);setErrors([]);setMessage(preserve?'Submitted configuration applied. Your newer edits remain unsaved.':'Configuration applied. Counters have been reset where the action requires it.');setPreview(null);}
+ },[token,queryClient]);
  function report(error:unknown){if(!mounted.current)return;if(error instanceof AxiosError){const data=error.response?.data as {error?:string;field?:string;code?:string}|undefined;setMessage(data?.code==='generation_conflict'?'Configuration changed elsewhere. Your draft is preserved. Reload applied settings before retrying.':data?.error??'Could not reach the server');if(data?.field)setErrors([{field:data.field,message:data.error??'Invalid configuration'}]);}else{setMessage(error instanceof Error?error.message:'Operation failed');}}
- async function mutate(operation:()=>Promise<Snapshot>){if(busy)return;setBusy(true);setMessage('');try{apply(await operation());}catch(error){report(error);}finally{if(mounted.current)setBusy(false);}}
+ async function mutate(operation:()=>Promise<Snapshot>){if(busy)return;const submitted=drafts.get(token)??draft;setBusy(true);setMessage('');try{apply(await operation(),submitted);}catch(error){report(error);}finally{if(mounted.current)setBusy(false);}}
  function save(){const found=validateDraft(draft.profiles);setErrors(found);if(found.length){setMessage('Fix the marked configuration fields before saving.');return;}void mutate(()=>api.updateRebinding(token,{expected_generation:draft.generation,profiles:draft.profiles}));}
  function reset(id:string){const generation=query.data?.generation;if(generation!==undefined)void mutate(()=>api.resetRebinding(token,id,generation));}
  function selectPhase(id:string,phaseId:string){const generation=query.data?.generation;if(generation!==undefined)void mutate(()=>api.selectRebindingPhase(token,id,{expected_generation:generation,phase_id:phaseId}));}

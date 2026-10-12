@@ -531,3 +531,32 @@ fn rebinding_memory_charge_includes_multi_phase_metadata() {
         "Account for all 32 allocated phase ID strings, not just a fixed runtime header"
     );
 }
+#[test]
+fn rebinding_exact_family_fallback_overrides_wildcard_suppression() {
+    for (kind, question) in [
+        (crate::rebinding::AnswerKind::A, "AAAA"),
+        (crate::rebinding::AnswerKind::AAAA, "A"),
+    ] {
+        let mut wildcard = profile(1);
+        wildcard.id = "wildcard".into();
+        wildcard.hostname = "*".into();
+        wildcard.answer_kind = kind;
+        if kind == crate::rebinding::AnswerKind::AAAA {
+            wildcard.phases[0].values = vec!["::1".into()];
+        }
+        let mut exact = wildcard.clone();
+        exact.id = "exact".into();
+        exact.hostname = "rebind".into();
+        exact.unmatched_family = crate::rebinding::UnmatchedFamily::Fallback;
+        let profiles = validate_profiles(vec![wildcard, exact]).unwrap();
+        assert!(
+            match_profile(&profiles, "rebind", question).is_none(),
+            "Exact fallback must bypass wildcard suppression"
+        );
+        assert!(
+            match_profile(&profiles, "other", question)
+                .unwrap()
+                .suppressed
+        );
+    }
+}

@@ -38,6 +38,16 @@ try{
  await page.getByRole('button',{name:'Reset profile',exact:true}).click();
  await page.getByText('0 qualifying queries',{exact:true}).waitFor();
 
+
+ // Completing a save must preserve edits made after submission.
+ let completeSave;let editSaveStarted;const editStarted=new Promise(resolve=>{editSaveStarted=resolve;});
+ await page.route('**/api/v2/dns/rebinding',async route=>{if(route.request().method()!=='PUT')return route.continue();editSaveStarted();await new Promise(resolve=>{completeSave=resolve;});await route.continue();});
+ await page.getByLabel('Profile name',{exact:true}).fill('Submitted version');await page.getByRole('button',{name:'Save profiles',exact:true}).click();await editStarted;
+ await page.getByLabel('Profile name',{exact:true}).fill('Newer unsaved edit');const savedResponse=page.waitForResponse(r=>r.url().endsWith('/api/v2/dns/rebinding')&&r.request().method()==='PUT');completeSave();await savedResponse;
+ await page.waitForFunction(()=>!document.querySelector('.rb-save button.rb-primary')?.disabled);
+ assert.equal(await page.getByLabel('Profile name',{exact:true}).inputValue(),'Newer unsaved edit');
+ await page.unroute('**/api/v2/dns/rebinding');
+ await page.getByRole('button',{name:'Save profiles',exact:true}).click();await page.getByText('Configuration applied.',{exact:false}).waitFor();
  // A completed save from session A must never replace session B's draft.
  await page.evaluate(async()=>{const{useSessionStore}=await import('/src/stores/sessionStore.ts');window.qaSessionA=useSessionStore.getState().activeSubdomain;});
  let releaseSave;let saveStarted;const saving=new Promise(resolve=>{saveStarted=resolve;});

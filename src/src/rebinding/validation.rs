@@ -180,10 +180,9 @@ pub fn match_profile<'a>(
         if let Some(p) = profiles
             .iter()
             .filter(matches)
-            .filter(|p| {
-                p.unmatched_family == UnmatchedFamily::Nodata && p.answer_kind != AnswerKind::CNAME
-            })
+            .filter(|p| p.answer_kind != AnswerKind::CNAME)
             .min_by_key(|p| p.hostname == "*")
+            .filter(|p| p.unmatched_family == UnmatchedFamily::Nodata)
         {
             return Some(ProfileMatch {
                 profile: p,
