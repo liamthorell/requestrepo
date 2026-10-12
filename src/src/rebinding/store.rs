@@ -13,6 +13,7 @@ struct Runtime {
     queries: u64,
     start: Instant,
     last_seen: Instant,
+    charge: usize,
     last_phase_ids: Vec<String>,
 }
 #[derive(Default)]
@@ -29,8 +30,8 @@ impl SessionState {
             .unwrap_or(0)
             + self
                 .states
-                .keys()
-                .map(|key| key.len() * 2 + 512)
+                .values()
+                .map(|state| state.charge)
                 .sum::<usize>()
             + self
                 .manual
@@ -257,6 +258,12 @@ impl Store {
         let old = state.states.get(&key).cloned();
         let index = old.as_ref().map(|s| s.queries).unwrap_or(0);
         let old_usage = state.usage();
+        let charge = key.len() * 2
+            + 512
+            + p.phases
+                .iter()
+                .map(|phase| phase.id.len() + 32)
+                .sum::<usize>();
         let mut status = if matched.suppressed {
             SelectionStatus::Suppressed
         } else {
@@ -266,10 +273,7 @@ impl Store {
         if status == SelectionStatus::Answer && old.is_none() {
             if state.states.len() >= SESSION_LIMIT || global_keys >= PROCESS_LIMIT {
                 status = SelectionStatus::Capacity;
-            } else if self
-                .reserve(&lookup.session, old_usage + key.len() * 2 + 512)
-                .is_err()
-            {
+            } else if self.reserve(&lookup.session, old_usage + charge).is_err() {
                 status = SelectionStatus::Capacity;
             } else {
                 reserved = true;
@@ -331,6 +335,7 @@ impl Store {
                     queries: index.saturating_add(1),
                     start: old.as_ref().map(|s| s.start).unwrap_or(now),
                     last_seen: now,
+                    charge,
                     last_phase_ids: selection.phase_ids.clone(),
                 },
             );

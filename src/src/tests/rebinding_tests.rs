@@ -499,3 +499,35 @@ fn rebinding_quota_failure_preserves_configuration_and_accounting() {
     store.clear_session("abcdefgh").unwrap();
     assert_eq!(cache.stats().memory_used_bytes, 0);
 }
+#[test]
+fn rebinding_memory_charge_includes_multi_phase_metadata() {
+    let cache = Arc::new(Cache::new());
+    let store = Store::new(cache.clone());
+    let mut p = profile(32);
+    p.strategy = crate::rebinding::Strategy::Multiple;
+    for (i, phase) in p.phases.iter_mut().enumerate() {
+        phase.id = format!("p{i:063}");
+    }
+    store
+        .replace(
+            "abcdefgh",
+            UpdateRequest {
+                expected_generation: 0,
+                profiles: vec![p],
+            },
+        )
+        .unwrap();
+    let before = cache.stats().memory_used_bytes;
+    store
+        .answer(
+            &lookup("rebind", "A", "192.0.2.1"),
+            Instant::now(),
+            |_| 0,
+            render,
+        )
+        .unwrap();
+    assert!(
+        cache.stats().memory_used_bytes - before > 2048,
+        "Account for all 32 allocated phase ID strings, not just a fixed runtime header"
+    );
+}
